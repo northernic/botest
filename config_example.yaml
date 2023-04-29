@@ -5,3 +5,9 @@ domainName :
 groupID: -123456
 #机器人token
 botToken : "aaaaaaaaaaa"
+alternate:
+  test:
+    name: "测试"
+    newDomainName:
+      - "https://111.com"
+      - "https://222.top"
