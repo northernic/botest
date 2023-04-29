@@ -94,8 +94,8 @@ func main() {
 
 	// 等待信号通知
 	<-signals
-
-	// 收到信号后关闭 ticker
+	//
+	//// 收到信号后关闭 ticker
 	ticker.Stop()
 
 	// 程序退出
@@ -126,26 +126,25 @@ func CheckDomain() {
 		fmt.Println("正在访问： ", v)
 		resp, err := client.Get(v)
 		if err != nil || resp.StatusCode != 200 {
-			tmpMsg = append(tmpMsg, "域名解析出错,该域名为： "+v+"   \n")
+			tmpMsg = append(tmpMsg, "域名解析出错,该域名为： "+v+"\n")
 			log.Error("域名解析出错,该域名为： " + v)
 			fmt.Println("域名 " + v + " 信息异常")
 		} else {
 			fmt.Println("域名 " + v + " 信息正常")
 		}
 	}
-	if len(tmpMsg) != 0 {
-		_msg := strings.Join(tmpMsg, " ")
-		l := len(_msg)
+	l := len(tmpMsg)
+	if l != 0 {
 		//10条错误发送一次tel
 		if l <= 10 {
-			sendMsg(Conf.GroupID, _msg, bot)
+			sendMsg(Conf.GroupID, strings.Join(tmpMsg, " "), bot)
 		} else {
 			for i := 0; i < l; i += 10 {
 				end := i + 10
 				if end > l {
 					end = l
 				}
-				sendMsg(Conf.GroupID, _msg[i:end], bot)
+				sendMsg(Conf.GroupID, strings.Join(tmpMsg[i:end], " "), bot)
 			}
 		}
 		fmt.Println("域名解析完毕,记录域名错误成功")
@@ -156,11 +155,11 @@ func CheckDomain() {
 }
 
 func sendMsg(chatID int64, msg string, bot *tgbotapi.BotAPI) {
-	//tgMsg := tgbotapi.NewMessage(chatID, msg)
-	//_, err := bot.Send(tgMsg)
-	//if err != nil {
-	//	log.Error("bot发送信息出错，错误信息： " + err.Error())
-	//}
+	tgMsg := tgbotapi.NewMessage(chatID, msg)
+	_, err := bot.Send(tgMsg)
+	if err != nil {
+		log.Error("bot发送信息出错，错误信息： " + err.Error())
+	}
 }
 
 func GetNewAdmainName() {
