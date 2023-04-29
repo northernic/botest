@@ -9,16 +9,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"syscall"
 	"time"
 )
-
-type Config struct {
-	DomainName []string `yaml:"domainName"`
-	GroupID    int64    `yaml:"groupID"`
-	BotToken   string   `yaml:"botToken"`
-}
 
 var (
 	Conf = Config{}
@@ -37,6 +32,14 @@ func initConfig() {
 		log.Fatal(err)
 		fmt.Println("读取配置失败")
 	}
+	//初始化log
+	log = logrus.New()
+	file, err := os.OpenFile(LOG, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		log.Error("Failed to open log file: ", err)
+	} else {
+		log.SetOutput(file)
+	}
 	fmt.Println("读取配置成功")
 }
 
@@ -44,6 +47,8 @@ var count int
 
 func main() {
 	initConfig()
+	go GetNewAdmainName()
+
 	//获取当前时间
 	now := time.Now()
 	var next time.Time
@@ -58,13 +63,6 @@ func main() {
 	count = 1
 	//<-timer.C
 	fmt.Println("Starting")
-	log = logrus.New()
-	file, err := os.OpenFile(LOG, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
-	if err != nil {
-		log.Error("Failed to open log file: ", err)
-	} else {
-		log.SetOutput(file)
-	}
 	log.Info(time.Now(), "  ", "Starting")
 	//设置后可以在输出日志中显示文件名和方法信息
 	log.SetReportCaller(true)
@@ -130,21 +128,88 @@ func CheckDomain() {
 		if err != nil || resp.StatusCode != 200 {
 			tmpMsg = append(tmpMsg, "域名解析出错,该域名为： "+v+"   \n")
 			log.Error("域名解析出错,该域名为： " + v)
+			fmt.Println("域名 " + v + " 信息异常")
 		} else {
 			fmt.Println("域名 " + v + " 信息正常")
 		}
 	}
 	if len(tmpMsg) != 0 {
 		_msg := strings.Join(tmpMsg, " ")
-		fmt.Println(_msg)
-		//msg := tgbotapi.NewMessage(Conf.GroupID, _msg)
-		//_, err = bot.Send(msg)
-		//if err != nil {
-		//	log.Error("bot发送信息出错，错误信息： " + err.Error())
-		//}
+		l := len(_msg)
+		//10条错误发送一次tel
+		if l <= 10 {
+			sendMsg(Conf.GroupID, _msg, bot)
+		} else {
+			for i := 0; i < l; i += 10 {
+				end := i + 10
+				if end > l {
+					end = l
+				}
+				sendMsg(Conf.GroupID, _msg[i:end], bot)
+			}
+		}
 		fmt.Println("域名解析完毕,记录域名错误成功")
 	} else {
 		fmt.Println("域名解析完毕,域名信息正常")
 		log.Info(time.Now(), " 域名信息正常")
+	}
+}
+
+func sendMsg(chatID int64, msg string, bot *tgbotapi.BotAPI) {
+	//tgMsg := tgbotapi.NewMessage(chatID, msg)
+	//_, err := bot.Send(tgMsg)
+	//if err != nil {
+	//	log.Error("bot发送信息出错，错误信息： " + err.Error())
+	//}
+}
+
+func GetNewAdmainName() {
+	bot, err := tgbotapi.NewBotAPI(Conf.BotToken)
+	if err != nil {
+		log.Printf("bot创建出错，错误信息： " + err.Error())
+	}
+	// 设置机器人接收更新的方式
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+	updates, err := bot.GetUpdatesChan(u)
+	// 处理接收到的更新
+	for update := range updates {
+		if update.Message == nil { // 忽略非文本消息
+			continue
+		}
+		arr := strings.Split(update.Message.Text, "/")
+		if len(arr) != 0 && arr[0] == "备用域名" {
+			if len(arr) > 1 && arr[1] != "" {
+				//标记是否找到对应模块
+				sign := false
+				//遍历配置文件，信息匹配
+				t := reflect.TypeOf(Conf.Alternate)
+				v := reflect.ValueOf(Conf.Alternate)
+				for i := 0; i < t.NumField(); i++ {
+					value := v.Field(i).Interface()
+					s, ok := value.(struct {
+						Name          string   `yaml:"name"`
+						NewDomainName []string `yaml:"newDomainName"`
+					})
+					if ok {
+						if arr[1] == s.Name {
+							text := strings.Join(s.NewDomainName, "  ")
+							sendMsg(update.Message.Chat.ID, text, bot)
+							sign = true
+							break
+						}
+					} else {
+						sendMsg(update.Message.Chat.ID, "请检查配置文件设置", bot)
+					}
+				}
+				if !sign {
+					sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
+				}
+			} else {
+				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"备用域名/{模块名}", bot)
+			}
+		} else {
+			sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"备用域名/{模块名}", bot)
+		}
 	}
 }
