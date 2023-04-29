@@ -50,44 +50,44 @@ func main() {
 	go GetNewAdmainName()
 
 	//获取当前时间
-	now := time.Now()
-	var next time.Time
-	if now.Hour() < 24 {
-		next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
-	} else {
-		next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-	}
-	// 创建定时器
-	timer := time.NewTimer(next.Sub(now))
-	// 计数器
-	count = 1
+	//now := time.Now()
+	//var next time.Time
+	//if now.Hour() < 24 {
+	//	next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
+	//} else {
+	//	next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+	//}
+	//// 创建定时器
+	//timer := time.NewTimer(next.Sub(now))
+	//// 计数器
+	//count = 1
+	////<-timer.C
+	//fmt.Println("Starting")
+	//log.Info(time.Now(), "  ", "Starting")
+	////设置后可以在输出日志中显示文件名和方法信息
+	//log.SetReportCaller(true)
+	//
+	//CheckDomain()
+	//// 等待定时器触发，执行函数
 	//<-timer.C
-	fmt.Println("Starting")
-	log.Info(time.Now(), "  ", "Starting")
-	//设置后可以在输出日志中显示文件名和方法信息
-	log.SetReportCaller(true)
-
-	CheckDomain()
-	// 等待定时器触发，执行函数
-	<-timer.C
-	fmt.Println("Starting")
-	CheckDomain()
-
-	// 创建 Ticker
-	ticker := time.NewTicker(8 * time.Hour)
-
-	// 定时器触发时执行的函数
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				fmt.Println(time.Now())
-				CheckDomain()
-				count++
-				log.Info(time.Now(), "第 ", count, " 次运行")
-			}
-		}
-	}()
+	//fmt.Println("Starting")
+	//CheckDomain()
+	//
+	//// 创建 Ticker
+	//ticker := time.NewTicker(8 * time.Hour)
+	//
+	//// 定时器触发时执行的函数
+	//go func() {
+	//	for {
+	//		select {
+	//		case <-ticker.C:
+	//			fmt.Println(time.Now())
+	//			CheckDomain()
+	//			count++
+	//			log.Info(time.Now(), "第 ", count, " 次运行")
+	//		}
+	//	}
+	//}()
 	// 处理 Ctrl+C 信号
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
@@ -96,7 +96,7 @@ func main() {
 	<-signals
 	//
 	//// 收到信号后关闭 ticker
-	ticker.Stop()
+	//ticker.Stop()
 
 	// 程序退出
 	log.Info(time.Now(), "程序退出 ", "总运行次数: ", count, " 次")
@@ -167,6 +167,7 @@ func GetNewAdmainName() {
 	if err != nil {
 		log.Printf("bot创建出错，错误信息： " + err.Error())
 	}
+
 	// 设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -176,9 +177,21 @@ func GetNewAdmainName() {
 		if update.Message == nil { // 忽略非文本消息
 			continue
 		}
+
+		//	处理来自群聊的消息
+		if update.Message.Chat.Type == "group" {
+			// 判断消息中是否包含机器人的用户名
+			botName := strings.ToLower(bot.Self.UserName)
+			if !strings.Contains(strings.ToLower(update.Message.Text), "@"+botName) {
+				return
+			}
+			update.Message.Text = strings.ReplaceAll(update.Message.Text, "@"+botName, "")
+			update.Message.Text = strings.TrimSpace(update.Message.Text)
+		}
+		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 		arr := strings.Split(update.Message.Text, "/")
-		if len(arr) != 0 && arr[0] == "备用域名" {
-			if len(arr) > 1 && arr[1] != "" {
+		if len(arr) != 0 && arr[1] == "备用域名" {
+			if len(arr) > 2 && arr[2] != "" {
 				//标记是否找到对应模块
 				sign := false
 				//遍历配置文件，信息匹配
@@ -191,7 +204,7 @@ func GetNewAdmainName() {
 						NewDomainName []string `yaml:"newDomainName"`
 					})
 					if ok {
-						if arr[1] == s.Name {
+						if arr[2] == s.Name {
 							text := strings.Join(s.NewDomainName, "  ")
 							sendMsg(update.Message.Chat.ID, text, bot)
 							sign = true
@@ -205,10 +218,10 @@ func GetNewAdmainName() {
 					sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
 				}
 			} else {
-				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"备用域名/{模块名}", bot)
+				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/备用域名/{模块名}", bot)
 			}
 		} else {
-			sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"备用域名/{模块名}", bot)
+			sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/备用域名/{模块名}", bot)
 		}
 	}
 }
