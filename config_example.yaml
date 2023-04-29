@@ -1,0 +1,7 @@
+domainName :
+  - "yours adminName1"
+  - "yours adminName2"
+#群聊id
+groupID: -123456
+#机器人token
+botToken : "aaaaaaaaaaa"
