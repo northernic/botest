@@ -49,33 +49,32 @@ var count int
 func main() {
 	initConfig()
 	go GetNewAdmainName()
+	//启动先扫描一遍
+	CheckDomain()
 
+	//八小时跑一次
 	//获取当前时间
-	now := time.Now()
-	var next time.Time
-	if now.Hour() < 24 {
-		next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
-	} else {
-		next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-	}
-	// 创建定时器
-	timer := time.NewTimer(next.Sub(now))
-	// 计数器
-	count = 1
+	//now := time.Now()
+	//var next time.Time
+	//if now.Hour() < 24 {
+	//	next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
+	//} else {
+	//	next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+	//}
+	//// 创建定时器
+	//timer := time.NewTimer(next.Sub(now))
+	//// 计数器
+	//count = 1
+	//log.Info(time.Now(), "  ", "Starting")
+	//log.SetReportCaller(true)
+	//// 等待定时器触发，执行函数
 	//<-timer.C
-	fmt.Println("Starting")
-	log.Info(time.Now(), "  ", "Starting")
-	//设置后可以在输出日志中显示文件名和方法信息
-	log.SetReportCaller(true)
+	//fmt.Println("Time is up,start Checking")
+	//CheckDomain()
 
-	CheckDomain()
-	// 等待定时器触发，执行函数
-	<-timer.C
-	fmt.Println("Starting")
-	CheckDomain()
-
-	// 创建 Ticker
-	ticker := time.NewTicker(8 * time.Hour)
+	// 创建 Ticker,之后8小时扫一次
+	//ticker := time.NewTicker(8 * time.Hour)
+	ticker := time.NewTicker(3 * time.Minute)
 
 	// 定时器触发时执行的函数
 	go func() {
@@ -96,8 +95,8 @@ func main() {
 	// 等待信号通知
 	<-signals
 	//
-	//// 收到信号后关闭 ticker
-	//ticker.Stop()
+	// 收到信号后关闭 ticker
+	ticker.Stop()
 
 	// 程序退出
 	log.Info(time.Now(), "程序退出 ", "总运行次数: ", count, " 次")
@@ -168,10 +167,9 @@ func GetNewAdmainName() {
 	if err != nil {
 		log.Error("bot创建出错，错误信息： " + err.Error())
 	}
-
 	// 设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = 0
 	updates, err := bot.GetUpdatesChan(u)
 	// 处理接收到的更新
 	for update := range updates {
@@ -181,8 +179,8 @@ func GetNewAdmainName() {
 		//	处理来自群聊的消息
 		if update.Message.Chat.Type == "group" {
 			// 判断消息中是否包含机器人的用户名
-			botName := strings.ToLower(bot.Self.UserName)
-			if !strings.Contains(strings.ToLower(update.Message.Text), "@"+botName) {
+			botName := bot.Self.UserName
+			if !strings.Contains(update.Message.Text, "@"+botName) {
 				return
 			}
 			update.Message.Text = strings.ReplaceAll(update.Message.Text, "@"+botName, "")
@@ -191,7 +189,7 @@ func GetNewAdmainName() {
 		//记录请求
 		//log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 		arr := strings.Split(update.Message.Text, "/")
-		if len(arr) != 0 {
+		if len(arr) != 0 && arr[0] == "" {
 			switch arr[1] {
 			case "备用域名":
 				if len(arr) > 2 && arr[2] != "" {
