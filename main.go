@@ -25,13 +25,11 @@ var (
 func initConfig() {
 	files, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
-		log.Fatal(err)
-		fmt.Println("读取配置失败")
+		fmt.Println("读取配置失败,err: ", err.Error())
 	}
 	err = yaml.Unmarshal(files, &Conf)
 	if err != nil {
-		log.Fatal(err)
-		fmt.Println("读取配置失败")
+		fmt.Println("读取配置失败,err: ", err.Error())
 	}
 	//初始化log
 	log = logrus.New()
@@ -54,27 +52,26 @@ func main() {
 
 	//八小时跑一次
 	//获取当前时间
-	//now := time.Now()
-	//var next time.Time
-	//if now.Hour() < 24 {
-	//	next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
-	//} else {
-	//	next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-	//}
-	//// 创建定时器
-	//timer := time.NewTimer(next.Sub(now))
-	//// 计数器
-	//count = 1
-	//log.Info(time.Now(), "  ", "Starting")
-	//log.SetReportCaller(true)
-	//// 等待定时器触发，执行函数
-	//<-timer.C
-	//fmt.Println("Time is up,start Checking")
-	//CheckDomain()
+	now := time.Now()
+	var next time.Time
+	if now.Hour() < 24 {
+		next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
+	} else {
+		next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+	}
+	// 创建定时器
+	timer := time.NewTimer(next.Sub(now))
+	// 计数器
+	count = 1
+	log.Info(time.Now(), "  ", "Starting")
+	log.SetReportCaller(true)
+	// 等待定时器触发，执行函数
+	<-timer.C
+	fmt.Println("Time is up,start Checking")
+	CheckDomain()
 
 	// 创建 Ticker,之后8小时扫一次
-	//ticker := time.NewTicker(8 * time.Hour)
-	ticker := time.NewTicker(3 * time.Minute)
+	ticker := time.NewTicker(8 * time.Hour)
 
 	// 定时器触发时执行的函数
 	go func() {
@@ -169,9 +166,12 @@ func GetNewAdmainName() {
 	}
 	// 设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 0
-	updates, err := bot.GetUpdatesChan(u)
+	u.Timeout = 60
+	updates, _ := bot.GetUpdatesChan(u)
 	// 处理接收到的更新
+	//for {
+	//	select {
+	//	case update := <-updates:
 	for update := range updates {
 		if update.Message == nil { // 忽略非文本消息
 			continue
@@ -181,7 +181,7 @@ func GetNewAdmainName() {
 			// 判断消息中是否包含机器人的用户名
 			botName := bot.Self.UserName
 			if !strings.Contains(update.Message.Text, "@"+botName) {
-				return
+				continue
 			}
 			update.Message.Text = strings.ReplaceAll(update.Message.Text, "@"+botName, "")
 			update.Message.Text = strings.TrimSpace(update.Message.Text)
@@ -225,9 +225,55 @@ func GetNewAdmainName() {
 			case "groupID":
 				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
 				break
+			case "上葡京域名":
+				//t := reflect.TypeOf(Conf.ShangPuJing)
+				//v := reflect.ValueOf(Conf.ShangPuJing)
+				//for i := 0; i < t.NumField(); i++ {
+				//	value := v.Field(i).Interface()
+				//	ss, ok := value.(struct {
+				//		Infos []struct {
+				//			ID        int
+				//			AdminName []string
+				//		}
+				//		BeiYong []string
+				//	})
+				//	if ok {
+				//		text := fmt.Sprintf("%+v", ss)
+				//		sendMsg(update.Message.Chat.ID, text, bot)
+				//	}
+				//}
+				text := Conf.ShangPuJing
+				sendMsg(update.Message.Chat.ID, text, bot)
+			case "金沙域名":
+
+				jsStr, err := yaml.Marshal(&Conf.JinSha)
+				if err != nil {
+					fmt.Println("Error:", err)
+					return
+				}
+				fmt.Println(string(jsStr))
+				//t := reflect.TypeOf(Conf.JinSha)
+				//v := reflect.ValueOf(Conf.JinSha)
+				//for i := 0; i < t.NumField(); i++ {
+				//	value := v.Field(i).Interface()
+				//	ss, ok := value.(struct {
+				//		Infos []struct {
+				//			ID        int
+				//			AdminName []string
+				//		}
+				//		BeiYong []string
+				//	})
+				//	if ok {
+				//		text := fmt.Sprintf("%+v", ss)
+				//		sendMsg(update.Message.Chat.ID, text, bot)
+				//	}
+				//}
 			default:
-				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/备用域名/{模块名}", bot)
+				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{命令}/{模块名}", bot)
 			}
 		}
 	}
+	//
+	//	}
+	//}
 }

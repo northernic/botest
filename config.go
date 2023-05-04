@@ -50,4 +50,22 @@ type Config struct {
 			NewDomainName []string `yaml:"newDomainName"`
 		} `yaml:"LSEX"`
 	} `json:"alternate"`
+
+	//ShangPuJing struct {
+	//	Infos []struct {
+	//		ID        int      `yaml:"id"`
+	//		AdminName []string `yaml:"adminName"`
+	//	} `yaml:"infos"`
+	//	BeiYong []string `yaml:"beiYong"`
+	//} `yaml:"ShangPuJing"`
+
+	ShangPuJing string `yaml:"ShangPuJing"`
+
+	JinSha struct {
+		Infos []struct {
+			ID        int      `yaml:"id"`
+			AdminName []string `yaml:"adminName"`
+		} `yaml:"infos"`
+		BeiYong []string `yaml:"beiYong"`
+	} `yaml:"JinSha"`
 }
