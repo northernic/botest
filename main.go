@@ -46,59 +46,58 @@ var count int
 
 func main() {
 	initConfig()
+	check := true //开关域名扫描
 	go GetNewAdmainName()
-	//启动先扫描一遍
-	CheckDomain()
+	if check {
+		//启动先扫描一遍
+		CheckDomain()
 
-	//八小时跑一次
-	//获取当前时间
-	now := time.Now()
-	var next time.Time
-	if now.Hour() < 24 {
-		next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
-	} else {
-		next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-	}
-	// 创建定时器
-	timer := time.NewTimer(next.Sub(now))
-	// 计数器
-	count = 1
-	log.Info(time.Now(), "  ", "Starting")
-	log.SetReportCaller(true)
-	// 等待定时器触发，执行函数
-	<-timer.C
-	fmt.Println("Time is up,start Checking")
-	CheckDomain()
-
-	// 创建 Ticker,之后8小时扫一次
-	ticker := time.NewTicker(8 * time.Hour)
-
-	// 定时器触发时执行的函数
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				fmt.Println(time.Now())
-				CheckDomain()
-				count++
-				log.Info(time.Now(), "第 ", count, " 次运行")
-			}
+		//八小时跑一次
+		//获取当前时间
+		now := time.Now()
+		var next time.Time
+		if now.Hour() < 24 {
+			next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
+		} else {
+			next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 		}
-	}()
-	// 处理 Ctrl+C 信号
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+		// 创建定时器
+		timer := time.NewTimer(next.Sub(now))
+		// 计数器
+		count = 1
+		log.Info(time.Now(), "  ", "Starting")
+		log.SetReportCaller(true)
+		// 等待定时器触发，执行函数
+		<-timer.C
+		fmt.Println("Time is up,start Checking")
+		CheckDomain()
 
-	// 等待信号通知
-	<-signals
-	//
-	// 收到信号后关闭 ticker
-	ticker.Stop()
+		// 创建 Ticker,之后8小时扫一次
+		ticker := time.NewTicker(8 * time.Hour)
 
-	// 程序退出
-	log.Info(time.Now(), "程序退出 ", "总运行次数: ", count, " 次")
-	fmt.Println("Program exiting...")
-	os.Exit(0)
+		// 定时器触发时执行的函数
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					fmt.Println(time.Now())
+					CheckDomain()
+					count++
+					log.Info(time.Now(), "第 ", count, " 次运行")
+				}
+			}
+		}()
+		// 处理 Ctrl+C 信号
+		signals := make(chan os.Signal, 1)
+		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+		// 等待信号通知
+		<-signals
+		//
+		// 收到信号后关闭 ticker
+		ticker.Stop()
+	}
+	select {}
 }
 func CheckDomain() {
 	bot, err := tgbotapi.NewBotAPI(Conf.BotToken)
@@ -191,6 +190,44 @@ func GetNewAdmainName() {
 		arr := strings.Split(update.Message.Text, "/")
 		if len(arr) != 0 && arr[0] == "" {
 			switch arr[1] {
+			//指定显示某模块备用域名
+			case "正式域名":
+				if len(arr) > 2 && arr[2] != "" {
+					//标记是否找到对应模块
+					sign := false
+					//遍历配置文件，信息匹配
+					t := reflect.TypeOf(Conf.Alternate)
+					v := reflect.ValueOf(Conf.Alternate)
+					for i := 0; i < t.NumField(); i++ {
+						value := v.Field(i).Interface()
+						s, ok := value.(struct {
+							Name          string   `yaml:"name"`
+							NewDomainName []string `yaml:"newDomainName"`
+							DomainName    []string `yaml:"domainName"`
+						})
+						if ok {
+							if arr[2] == s.Name {
+								var text string
+								if len(s.DomainName) == 0 {
+									text = "该正式域名未配置"
+								} else {
+									text = strings.Join(s.DomainName, "  ")
+								}
+								sendMsg(update.Message.Chat.ID, text, bot)
+								sign = true
+								break
+							}
+						} else {
+							fmt.Println("请检查配置文件设置")
+						}
+					}
+					if !sign {
+						sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
+					}
+				} else {
+					sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{备用or正式域名}/{模块名}", bot)
+				}
+				break //指定显示某模块备用域名
 			case "备用域名":
 				if len(arr) > 2 && arr[2] != "" {
 					//标记是否找到对应模块
@@ -203,10 +240,16 @@ func GetNewAdmainName() {
 						s, ok := value.(struct {
 							Name          string   `yaml:"name"`
 							NewDomainName []string `yaml:"newDomainName"`
+							DomainName    []string `yaml:"domainName"`
 						})
 						if ok {
 							if arr[2] == s.Name {
-								text := strings.Join(s.NewDomainName, "  ")
+								var text string
+								if len(s.DomainName) == 0 {
+									text = "该备用域名未配置"
+								} else {
+									text = strings.Join(s.DomainName, "  ")
+								}
 								sendMsg(update.Message.Chat.ID, text, bot)
 								sign = true
 								break
@@ -225,49 +268,31 @@ func GetNewAdmainName() {
 			case "groupID":
 				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
 				break
+
+				//返回上葡京所有域名
 			case "上葡京域名":
-				//t := reflect.TypeOf(Conf.ShangPuJing)
-				//v := reflect.ValueOf(Conf.ShangPuJing)
-				//for i := 0; i < t.NumField(); i++ {
-				//	value := v.Field(i).Interface()
-				//	ss, ok := value.(struct {
-				//		Infos []struct {
-				//			ID        int
-				//			AdminName []string
-				//		}
-				//		BeiYong []string
-				//	})
-				//	if ok {
-				//		text := fmt.Sprintf("%+v", ss)
-				//		sendMsg(update.Message.Chat.ID, text, bot)
-				//	}
-				//}
 				text := Conf.ShangPuJing
 				sendMsg(update.Message.Chat.ID, text, bot)
-			case "金沙域名":
 
-				jsStr, err := yaml.Marshal(&Conf.JinSha)
-				if err != nil {
-					fmt.Println("Error:", err)
-					return
-				}
-				fmt.Println(string(jsStr))
-				//t := reflect.TypeOf(Conf.JinSha)
-				//v := reflect.ValueOf(Conf.JinSha)
-				//for i := 0; i < t.NumField(); i++ {
-				//	value := v.Field(i).Interface()
-				//	ss, ok := value.(struct {
-				//		Infos []struct {
-				//			ID        int
-				//			AdminName []string
-				//		}
-				//		BeiYong []string
-				//	})
-				//	if ok {
-				//		text := fmt.Sprintf("%+v", ss)
-				//		sendMsg(update.Message.Chat.ID, text, bot)
-				//	}
-				//}
+				//返回金沙所有域名
+			case "金沙域名":
+				text := Conf.JinSha
+				sendMsg(update.Message.Chat.ID, text, bot)
+
+				//测试修改config文件
+			//case "test":
+			//	Conf.JinSha = "testModify"
+			//	configData, err := yaml.Marshal(&Conf)
+			//	if err != nil {
+			//		fmt.Printf("Error marshaling config data: %s\n", err)
+			//		continue
+			//	}
+			//	err = ioutil.WriteFile("config.yaml", configData, 0644)
+			//	if err != nil {
+			//		fmt.Printf("Error marshaling config data: %s\n", err)
+			//		continue
+			//	}
+			//	sendMsg(update.Message.Chat.ID, "修改成功", bot)
 			default:
 				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{命令}/{模块名}", bot)
 			}
