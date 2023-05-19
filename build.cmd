@@ -1,1 +1,1 @@
-go build -o bot_new.exe
+go build -o bot_v1.1.exe

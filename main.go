@@ -208,10 +208,10 @@ func GetNewAdmainName() {
 						if ok {
 							if arr[2] == s.Name {
 								var text string
-								if len(s.DomainName) == 0 {
+								if len(s.NewDomainName) == 0 {
 									text = "该正式域名未配置"
 								} else {
-									text = strings.Join(s.DomainName, "  ")
+									text = strings.Join(s.NewDomainName, "  ")
 								}
 								sendMsg(update.Message.Chat.ID, text, bot)
 								sign = true
