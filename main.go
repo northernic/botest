@@ -47,7 +47,7 @@ var count int
 func main() {
 	initConfig()
 	check := true //开关域名扫描
-	go GetNewAdmainName()
+	go startBot()
 	if check {
 		//启动先扫描一遍
 		CheckDomain()
@@ -149,6 +149,7 @@ func CheckDomain() {
 	}
 }
 
+// 发送消息给指定聊天ID
 func sendMsg(chatID int64, msg string, bot *tgbotapi.BotAPI) {
 	tgMsg := tgbotapi.NewMessage(chatID, msg)
 	_, err := bot.Send(tgMsg)
@@ -157,7 +158,7 @@ func sendMsg(chatID int64, msg string, bot *tgbotapi.BotAPI) {
 	}
 }
 
-func GetNewAdmainName() {
+func startBot() {
 	bot, err := tgbotapi.NewBotAPI(Conf.BotToken)
 	if err != nil {
 		log.Error("bot创建出错，错误信息： " + err.Error())
@@ -171,16 +172,14 @@ func GetNewAdmainName() {
 		if update.Message == nil { // 忽略非文本消息
 			continue
 		}
-		//	处理来自群聊的消息
-		if update.Message.Chat.Type == "group" {
-			// 判断消息中是否包含机器人的用户名
-			botName := bot.Self.UserName
-			if !strings.Contains(update.Message.Text, "@"+botName) {
-				continue
-			}
-			update.Message.Text = strings.ReplaceAll(update.Message.Text, "@"+botName, "")
-			update.Message.Text = strings.TrimSpace(update.Message.Text)
+
+		//单重命令，示例  /hello
+		cmd := update.Message.Command()
+		switch cmd {
+		case "hello":
+			sendMsg(update.Message.Chat.ID, "hello,world!", bot)
 		}
+
 		//记录请求
 		//log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 		arr := strings.Split(update.Message.Text, "/")
@@ -223,7 +222,8 @@ func GetNewAdmainName() {
 				} else {
 					sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{备用or正式域名}/{模块名}", bot)
 				}
-				break //指定显示某模块备用域名
+				break
+				//指定显示某模块备用域名
 			case "备用域名":
 				if len(arr) > 2 && arr[2] != "" {
 					//标记是否找到对应模块
