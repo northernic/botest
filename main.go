@@ -53,7 +53,6 @@ func main() {
 		CheckDomain()
 
 		//八小时跑一次
-		//获取当前时间
 		now := time.Now()
 		var next time.Time
 		if now.Hour() < 24 {
@@ -168,9 +167,6 @@ func GetNewAdmainName() {
 	u.Timeout = 60
 	updates, _ := bot.GetUpdatesChan(u)
 	// 处理接收到的更新
-	//for {
-	//	select {
-	//	case update := <-updates:
 	for update := range updates {
 		if update.Message == nil { // 忽略非文本消息
 			continue
@@ -278,7 +274,13 @@ func GetNewAdmainName() {
 			case "金沙域名":
 				text := Conf.JinSha
 				sendMsg(update.Message.Chat.ID, text, bot)
+			case "总列表":
+				if len(arr) > 2 && arr[2] != "" {
+					switch arr[2] {
+					case "aaa":
 
+					}
+				}
 				//测试修改config文件
 			//case "test":
 			//	Conf.JinSha = "testModify"
@@ -298,7 +300,4 @@ func GetNewAdmainName() {
 			}
 		}
 	}
-	//
-	//	}
-	//}
 }
