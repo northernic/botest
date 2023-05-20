@@ -209,92 +209,13 @@ func startBot() {
 		//记录请求
 		//log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-		//多重命令  示例 /正式域名/iex
+		//多重命令  示例 /show/iex
 		arr := strings.Split(update.Message.Text, "/")
 		if len(arr) != 0 && arr[0] == "" {
 			switch arr[1] {
-			//指定显示某模块备用域名
-			case "正式域名":
-				if len(arr) > 2 && arr[2] != "" {
-					//标记是否找到对应模块
-					sign := false
-					//遍历配置文件，信息匹配
-					t := reflect.TypeOf(Conf.Alternate)
-					v := reflect.ValueOf(Conf.Alternate)
-					for i := 0; i < t.NumField(); i++ {
-						value := v.Field(i).Interface()
-						s, ok := value.(struct {
-							Name          string   `yaml:"name"`
-							NewDomainName []string `yaml:"newDomainName"`
-							DomainName    []string `yaml:"domainName"`
-						})
-						if ok {
-							if arr[2] == s.Name {
-								var text string
-								if len(s.NewDomainName) == 0 {
-									text = "该正式域名未配置"
-								} else {
-									text = strings.Join(s.NewDomainName, "  ")
-								}
-								sendMsg(update.Message.Chat.ID, text, bot)
-								sign = true
-								break
-							}
-						} else {
-							fmt.Println("请检查配置文件设置")
-						}
-					}
-					if !sign {
-						sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
-					}
-				} else {
-					sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{备用or正式域名}/{模块名}", bot)
-				}
-				break
-				//指定显示某模块备用域名
-			case "备用域名":
-				if len(arr) > 2 && arr[2] != "" {
-					//标记是否找到对应模块
-					sign := false
-					//遍历配置文件，信息匹配
-					t := reflect.TypeOf(Conf.Alternate)
-					v := reflect.ValueOf(Conf.Alternate)
-					for i := 0; i < t.NumField(); i++ {
-						value := v.Field(i).Interface()
-						s, ok := value.(struct {
-							Name          string   `yaml:"name"`
-							NewDomainName []string `yaml:"newDomainName"`
-							DomainName    []string `yaml:"domainName"`
-						})
-						if ok {
-							if arr[2] == s.Name {
-								var text string
-								if len(s.DomainName) == 0 {
-									text = "该备用域名未配置"
-								} else {
-									text = strings.Join(s.DomainName, "  ")
-								}
-								sendMsg(update.Message.Chat.ID, text, bot)
-								sign = true
-								break
-							}
-						} else {
-							fmt.Println("请检查配置文件设置")
-						}
-					}
-					if !sign {
-						sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
-					}
-				} else {
-					sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/备用域名/{模块名}", bot)
-				}
-				break
-
-				//返回上葡京所有域名
 			case "上葡京域名":
 				text := Conf.ShangPuJing
 				sendMsg(update.Message.Chat.ID, text, bot)
-
 				//返回金沙所有域名
 			case "金沙域名":
 				text := Conf.JinSha
