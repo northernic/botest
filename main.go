@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/go-yaml/yaml"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	Conf = Config{}
-	LOG  = "logrus.log"
-	log  *logrus.Logger
+	Conf       = Config{}
+	LOG        = "logrus.log"
+	log        *logrus.Logger
+	configName = "config.yaml"
 )
 
 func initConfig() {
@@ -109,11 +110,6 @@ func CheckDomain() {
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 	tmpMsg := []string{}
 	for _, v := range Conf.DomainName {
-		//wh, _ := tgbotapi.NewWebhook(v)
-		//wh.MaxConnections = 10
-		//wh.DropPendingUpdates = true
-		//apiResponse, err := bot.Request(wh)
-		//time.Sleep(time.Second)
 		timeout := 3 * time.Second
 		client := http.Client{
 			Timeout: timeout,
@@ -151,6 +147,9 @@ func CheckDomain() {
 
 // 发送消息给指定聊天ID
 func sendMsg(chatID int64, msg string, bot *tgbotapi.BotAPI) {
+	if msg == "" {
+		return
+	}
 	tgMsg := tgbotapi.NewMessage(chatID, msg)
 	_, err := bot.Send(tgMsg)
 	if err != nil {
@@ -172,16 +171,45 @@ func startBot() {
 		if update.Message == nil { // 忽略非文本消息
 			continue
 		}
-
-		//单重命令，示例  /hello
+		//仅开头为"/"才处理
+		//单重命令(英文)，示例  /hello
 		cmd := update.Message.Command()
-		switch cmd {
-		case "hello":
-			sendMsg(update.Message.Chat.ID, "hello,world!", bot)
+		if len(cmd) != 0 {
+			switch cmd {
+			case "hello":
+				sendMsg(update.Message.Chat.ID, "hello,world!", bot)
+				continue
+			case "groupID":
+				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
+				continue
+			case "check":
+				CheckDomain()
+				continue
+			default:
+				cmdlist := []string{
+					"命令列表大全:",
+					"/hello",
+					"/check", //检查域名
+					"/groupID",
+					"/show/{模块名称}",
+					"/change/{模块名称}",
+					"/正式域名",
+					"/备用域名",
+					"/上葡京域名",
+					"/金沙域名",
+					"模块名称:",
+					"{ICEX,M1F,LSEX,MIAX,TGX,VGX,ISE,BitBank,SZ,Shop,LuHai}",
+				}
+				text := strings.Join(cmdlist, "\n")
+				sendMsg(update.Message.Chat.ID, text, bot)
+				continue
+			}
 		}
 
 		//记录请求
 		//log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+
+		//多重命令  示例 /正式域名/iex
 		arr := strings.Split(update.Message.Text, "/")
 		if len(arr) != 0 && arr[0] == "" {
 			switch arr[1] {
@@ -261,9 +289,6 @@ func startBot() {
 					sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/备用域名/{模块名}", bot)
 				}
 				break
-			case "groupID":
-				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
-				break
 
 				//返回上葡京所有域名
 			case "上葡京域名":
@@ -274,13 +299,43 @@ func startBot() {
 			case "金沙域名":
 				text := Conf.JinSha
 				sendMsg(update.Message.Chat.ID, text, bot)
-			case "总列表":
+			case "show":
+				if len(arr) > 2 && arr[2] != "" {
+					//标记是否找到对应模块
+					sign := false
+					conf, err := readConfigFile()
+					if err != nil {
+						log.Error("Failed to open log file: ", err)
+						sendMsg(update.Message.Chat.ID, "请检查配置文件", bot)
+					}
+					//遍历配置文件，信息匹配
+					t := reflect.TypeOf(*conf)
+					v := reflect.ValueOf(*conf)
+					for i := 0; i < t.NumField(); i++ {
+						field := t.Field(i)
+						if field.Name == arr[2] {
+							fieldValue := v.FieldByName(field.Name)
+							sign = true
+							text := getFieldInfo(fieldValue)
+							sendMsg(update.Message.Chat.ID, text, bot)
+							break
+						}
+					}
+					if !sign {
+						sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
+					}
+				}
+			case "add":
 				if len(arr) > 2 && arr[2] != "" {
 					switch arr[2] {
-					case "aaa":
 
 					}
 				}
+			case "delete":
+				if len(arr) > 2 && arr[2] != "" {
+
+				}
+
 				//测试修改config文件
 			//case "test":
 			//	Conf.JinSha = "testModify"
@@ -300,4 +355,46 @@ func startBot() {
 			}
 		}
 	}
+}
+
+// 读取 config.yaml 文件并返回 Config 结构体
+func readConfigFile() (*Config, error) {
+	config := &Config{}
+
+	content, err := ioutil.ReadFile(configName)
+	if err != nil {
+		fmt.Println("读取配置失败,err: ", err.Error())
+	}
+
+	err = yaml.Unmarshal(content, config)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
+func getFieldInfo(value reflect.Value) string {
+	typeName := value.Type()
+	var st []string
+	for i := 0; i < value.NumField(); i++ {
+		typeField := typeName.Field(i)
+		fieldName := typeField.Name
+		fieldValue := value.Field(i).Interface()
+
+		// 处理切片类型
+		if value.Field(i).Kind() == reflect.Slice {
+			sliceValues := make([]string, value.Field(i).Len())
+			for j := 0; j < value.Field(i).Len(); j++ {
+				sliceValues[j] = fmt.Sprintf("%v", value.Field(i).Index(j))
+			}
+			fieldValue = strings.Join(sliceValues, "\n")
+		}
+		//仅展示配置项
+		if fieldValue != "" {
+			tmpSt := fmt.Sprintf("%s:\n%v\n", fieldName, fieldValue)
+			st = append(st, tmpSt)
+		}
+	}
+	return strings.Join(st, "\n")
+
 }
