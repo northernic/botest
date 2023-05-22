@@ -99,6 +99,7 @@ func main() {
 	}
 	select {}
 }
+
 func CheckDomain() {
 	bot, err := tgbotapi.NewBotAPI(Conf.BotToken)
 	if err != nil {
@@ -109,6 +110,9 @@ func CheckDomain() {
 	bot.Debug = true
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 	tmpMsg := []string{}
+	if len(Conf.DomainName) == 0 {
+		return
+	}
 	for _, v := range Conf.DomainName {
 		timeout := 3 * time.Second
 		client := http.Client{
@@ -193,8 +197,7 @@ func startBot() {
 					"/groupID",
 					"/show/{模块名称}",
 					"/change/{模块名称}",
-					"/正式域名",
-					"/备用域名",
+					"/error/{错误具体信息}",
 					"/上葡京域名",
 					"/金沙域名",
 					"模块名称:",
@@ -212,6 +215,9 @@ func startBot() {
 		//多重命令  示例 /show/iex
 		arr := strings.Split(update.Message.Text, "/")
 		if len(arr) != 0 && arr[0] == "" {
+			if len(arr) == 1 {
+				continue
+			}
 			switch arr[1] {
 			case "上葡京域名":
 				text := Conf.ShangPuJing
@@ -254,6 +260,22 @@ func startBot() {
 				}
 			case "delete":
 				if len(arr) > 2 && arr[2] != "" {
+
+				}
+			case "error":
+				if len(arr) > 2 && arr[2] != "" {
+					fromGroups := Conf.FromGroups
+					sign := false
+					for _, v := range fromGroups {
+						if v == update.Message.Chat.ID {
+							sign = true
+							break
+						}
+					}
+					if sign {
+						errorInfo := arr[2]
+						sendMsg(Conf.FromGroups["group1"], errorInfo, bot)
+					}
 
 				}
 

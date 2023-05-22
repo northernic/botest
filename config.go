@@ -1,9 +1,11 @@
 package main
 
 type Config struct {
-	DomainName []string `yaml:"domainName"`
-	GroupID    int64    `yaml:"groupID"`
-	BotToken   string   `yaml:"botToken"`
+	DomainName []string         `yaml:"domainName"`
+	GroupID    int64            `yaml:"groupID"`
+	BotToken   string           `yaml:"botToken"`
+	FromGroups map[string]int64 `yaml:"fromGroups"`
+	ToGroups   []int64          `yaml:"toGroups"`
 	Alternate  struct {
 		M1F struct {
 			Name          string   `yaml:"name"`
@@ -81,6 +83,10 @@ type Config struct {
 	LuHai        LuHai       `yaml:"陆海新通道"`
 }
 
+type Group struct {
+	ID   int64  `yaml:"ID"`
+	Name string `yaml:"Name"`
+}
 type ICEX struct {
 	H5               []string `yaml:"H5"`
 	Admin            []string `yaml:"后台"`
