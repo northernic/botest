@@ -166,6 +166,7 @@ func startBot() {
 	if err != nil {
 		log.Error("bot创建出错，错误信息： " + err.Error())
 	}
+	//bot.Debug = true
 	// 设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -175,6 +176,7 @@ func startBot() {
 		if update.Message == nil { // 忽略非文本消息
 			continue
 		}
+
 		//仅开头为"/"才处理
 		//单重命令(英文)，示例  /hello
 		cmd := update.Message.Command()
@@ -186,6 +188,9 @@ func startBot() {
 			case "groupID":
 				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
 				continue
+			case "myID":
+				sendMsg(update.Message.Chat.ID, "myID: "+strconv.Itoa(update.Message.From.ID), bot)
+				continue
 			case "check":
 				CheckDomain()
 				continue
@@ -195,13 +200,16 @@ func startBot() {
 					"/hello",
 					"/check", //检查域名
 					"/groupID",
+					"/myID",
 					"/show/{模块名称}",
 					"/change/{模块名称}",
-					"/error/{错误具体信息}",
+					"/add/",
+					"/delete/",
+					"/错误上报/{错误码}/{错误具体信息}",
+					"/错误处理/{具体信息}",
 					"/上葡京域名",
 					"/金沙域名",
 					"模块名称:",
-					"{ICEX,M1F,LSEX,MIAX,TGX,VGX,ISE,BitBank,SZ,Shop,LuHai}",
 				}
 				text := strings.Join(cmdlist, "\n")
 				sendMsg(update.Message.Chat.ID, text, bot)
@@ -240,7 +248,7 @@ func startBot() {
 					v := reflect.ValueOf(*conf)
 					for i := 0; i < t.NumField(); i++ {
 						field := t.Field(i)
-						if field.Name == arr[2] {
+						if strings.ToLower(field.Name) == strings.ToLower(arr[2]) {
 							fieldValue := v.FieldByName(field.Name)
 							sign = true
 							text := getFieldInfo(fieldValue)
@@ -262,19 +270,37 @@ func startBot() {
 				if len(arr) > 2 && arr[2] != "" {
 
 				}
-			case "error":
+			case "错误上报":
 				if len(arr) > 2 && arr[2] != "" {
 					fromGroups := Conf.FromGroups
-					sign := false
+
 					for _, v := range fromGroups {
 						if v == update.Message.Chat.ID {
-							sign = true
+							//给本群
+							sendMsg(v, "错误已提交", bot)
+							//给错误接受群
+							if len(arr) > 3 && arr[3] != "" {
+								sendMsg(Conf.ToGroups["handleErrorGroup"], "错误码："+arr[2]+" 错误信息: "+arr[3], bot)
+							}
 							break
 						}
 					}
-					if sign {
-						errorInfo := arr[2]
-						sendMsg(Conf.FromGroups["group1"], errorInfo, bot)
+
+				}
+			case "错误处理":
+				if len(arr) > 2 && arr[2] != "" {
+					fromGroups := Conf.FromGroups
+
+					for _, v := range fromGroups {
+						if v == update.Message.Chat.ID {
+							//给本群
+							sendMsg(v, "错误已提交", bot)
+							//给错误接受群
+							if len(arr) > 3 && arr[3] != "" {
+								sendMsg(Conf.ToGroups["handleErrorGroup"], "错误码："+arr[2]+" 错误信息: "+arr[3], bot)
+							}
+							break
+						}
 					}
 
 				}
@@ -295,6 +321,7 @@ func startBot() {
 			//	sendMsg(update.Message.Chat.ID, "修改成功", bot)
 			default:
 				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{命令}/{模块名}", bot)
+				continue
 			}
 		}
 	}
