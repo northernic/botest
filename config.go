@@ -1,13 +1,13 @@
 package main
 
 type Config struct {
-	DomainName  []string         `yaml:"domainName"`
-	GroupID     int64            `yaml:"groupID"`
-	BotToken    string           `yaml:"botToken"`
-	FromGroups  map[string]int64 `yaml:"fromGroups"`
-	ToGroups    map[string]int64 `yaml:"toGroups"`
-	ShangPuJing string           `yaml:"ShangPuJing"`
-	JinSha      string           `yaml:"JinSha"`
+	DomainName   []string         `yaml:"domainName"`
+	GroupID      int64            `yaml:"groupID"`
+	BotToken     string           `yaml:"botToken"`
+	FromGroups   map[string]int64 `yaml:"fromGroups"`
+	HandleGroups map[string]int64 `yaml:"handleGroups"`
+	ShangPuJing  string           `yaml:"ShangPuJing"`
+	JinSha       string           `yaml:"JinSha"`
 
 	ICEX         Model `yaml:"欧美ICEX"`
 	M1F          Model `yaml:"欧美M1F"`

@@ -170,7 +170,9 @@ func startBot() {
 	// 设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
+
 	updates, _ := bot.GetUpdatesChan(u)
+
 	// 处理接收到的更新
 	for update := range updates {
 		if update.Message == nil { // 忽略非文本消息
@@ -180,15 +182,18 @@ func startBot() {
 		//仅开头为"/"才处理
 		//单重命令(英文)，示例  /hello
 		cmd := update.Message.Command()
+
+		cmd = strings.ToLower(cmd)
 		if len(cmd) != 0 {
 			switch cmd {
+
 			case "hello":
 				sendMsg(update.Message.Chat.ID, "hello,world!", bot)
 				continue
-			case "groupID":
+			case "groupid":
 				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
 				continue
-			case "myID":
+			case "myid":
 				sendMsg(update.Message.Chat.ID, "myID: "+strconv.Itoa(update.Message.From.ID), bot)
 				continue
 			case "check":
@@ -205,11 +210,10 @@ func startBot() {
 					"/change/{模块名称}",
 					"/add/",
 					"/delete/",
-					"/错误上报/{错误码}/{错误具体信息}",
-					"/错误处理/{具体信息}",
+					"/错误上报/{错误域名}",
+					"/错误已处理/{群名称}/{域名}",
 					"/上葡京域名",
 					"/金沙域名",
-					"模块名称:",
 				}
 				text := strings.Join(cmdlist, "\n")
 				sendMsg(update.Message.Chat.ID, text, bot)
@@ -270,40 +274,10 @@ func startBot() {
 				if len(arr) > 2 && arr[2] != "" {
 
 				}
-			case "错误上报":
-				if len(arr) > 2 && arr[2] != "" {
-					fromGroups := Conf.FromGroups
 
-					for _, v := range fromGroups {
-						if v == update.Message.Chat.ID {
-							//给本群
-							sendMsg(v, "错误已提交", bot)
-							//给错误接受群
-							if len(arr) > 3 && arr[3] != "" {
-								sendMsg(Conf.ToGroups["handleErrorGroup"], "错误码："+arr[2]+" 错误信息: "+arr[3], bot)
-							}
-							break
-						}
-					}
-
-				}
-			case "错误处理":
-				if len(arr) > 2 && arr[2] != "" {
-					fromGroups := Conf.FromGroups
-
-					for _, v := range fromGroups {
-						if v == update.Message.Chat.ID {
-							//给本群
-							sendMsg(v, "错误已提交", bot)
-							//给错误接受群
-							if len(arr) > 3 && arr[3] != "" {
-								sendMsg(Conf.ToGroups["handleErrorGroup"], "错误码："+arr[2]+" 错误信息: "+arr[3], bot)
-							}
-							break
-						}
-					}
-
-				}
+			case "setdomain":
+				//向指定url发送https post 请求
+				//bot.SetWebhook()
 
 				//测试修改config文件
 			//case "test":
@@ -324,7 +298,17 @@ func startBot() {
 				continue
 			}
 		}
+
+		//// 处理用户的文本输入，可以根据需要进行逻辑处理
+		//reply := "收到您的输入：" + update.Message.Text
+		//
+		//msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+		//_, err := bot.Send(msg)
+		//if err != nil {
+		//	log.Println(err)
+		//}
 	}
+
 }
 
 // 读取 config.yaml 文件并返回 Config 结构体
@@ -366,5 +350,4 @@ func getFieldInfo(value reflect.Value) string {
 		}
 	}
 	return strings.Join(st, "\n")
-
 }
