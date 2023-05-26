@@ -193,6 +193,25 @@ func startBot() {
 			case "groupid":
 				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
 				continue
+			case "remove":
+				// 创建一个发送给用户的空的ReplyKeyboardRemove
+				removeKeyboard := tgbotapi.NewRemoveKeyboard(false)
+
+				// 设置要移除键盘的目标聊天ID
+				chatID := int64(update.Message.Chat.ID) // 替换为实际的聊天ID,id为群id的时候是清除全部群成员的自定义键盘
+
+				// 替换为实际的聊天ID,个人的话可以用这个
+				//chatID := int64(update.Message.From.ID)
+
+				// 创建一个新的消息配置
+				msg := tgbotapi.NewMessage(chatID, "移除自定义键盘")
+				msg.ReplyMarkup = removeKeyboard
+
+				// 发送消息
+				_, err := bot.Send(msg)
+				if err != nil {
+					log.Panic(err)
+				}
 			case "myid":
 				sendMsg(update.Message.Chat.ID, "myID: "+strconv.Itoa(update.Message.From.ID), bot)
 				continue
@@ -210,6 +229,7 @@ func startBot() {
 					"/change/{模块名称}",
 					"/add/",
 					"/delete/",
+					"remove",
 					"/错误上报/{错误域名}",
 					"/错误已处理/{群名称}/{域名}",
 					"/上葡京域名",
