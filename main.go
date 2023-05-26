@@ -120,12 +120,19 @@ func CheckDomain() {
 		}
 		fmt.Println("正在访问： ", v)
 		resp, err := client.Get(v)
-		if err != nil || resp.StatusCode != 200 {
-			tmpMsg = append(tmpMsg, "域名解析出错,该域名为： "+v+"\n")
-			log.Error("域名解析出错,该域名为： " + v)
+		if err != nil {
+			tmpMsg = append(tmpMsg, "访问出错，该域名为："+v+"\n")
+			log.Error("访问出错，该域名为：" + v)
 			fmt.Println("域名 " + v + " 信息异常")
 		} else {
-			fmt.Println("域名 " + v + " 信息正常")
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				tmpMsg = append(tmpMsg, "状态码异常，该域名为："+v+"\n")
+				log.Error("状态码异常，该域名为：" + v)
+				fmt.Println("域名 " + v + " 信息异常")
+			} else {
+				fmt.Println("域名 " + v + " 信息正常")
+			}
 		}
 	}
 	l := len(tmpMsg)
