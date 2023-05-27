@@ -173,15 +173,34 @@ func startBot() {
 	if err != nil {
 		log.Error("bot创建出错，错误信息： " + err.Error())
 	}
-	//bot.Debug = true
-	// 设置机器人接收更新的方式
+	bot.Debug = true
+	//设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
+	//这里注释的是只处理最新的更新
+	//updates, err := bot.GetUpdates(u)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//if len(updates) > 0 {
+	//	lastUpdate := updates[len(updates)-1]
+	//	offset := lastUpdate.UpdateID + 1
+	//	// 使用 offset 设置下一次获取的起始位置
+	//	u.Offset = offset
+	//}
 	u.Timeout = 60
+	updateChan, _ := bot.GetUpdatesChan(u)
 
-	updates, _ := bot.GetUpdatesChan(u)
+	//// 设置Webhook地址，用于接收电报机器人的回调信息
+	//webhookURL := "https://your-webhook-url.com/your-webhook-path"
+	//_, err = bot.SetWebhook(tgbotapi.NewWebhookWithCert(webhookURL, "cert.pem"))
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	////使用webhook方式获取更新
+	//http.HandleFunc("/your")
 
 	// 处理接收到的更新
-	for update := range updates {
+	for update := range updateChan {
 		if update.Message == nil { // 忽略非文本消息
 			continue
 		}
@@ -193,7 +212,6 @@ func startBot() {
 		cmd = strings.ToLower(cmd)
 		if len(cmd) != 0 {
 			switch cmd {
-
 			case "hello":
 				sendMsg(update.Message.Chat.ID, "hello,world!", bot)
 				continue
@@ -236,16 +254,18 @@ func startBot() {
 					"/change/{模块名称}",
 					"/add/",
 					"/delete/",
-					"remove",
+					"/remove",
 					"/错误上报/{错误域名}",
 					"/错误已处理/{群名称}/{域名}",
 					"/上葡京域名",
 					"/金沙域名",
+					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,SZ,Shop,LuHai}",
 				}
 				text := strings.Join(cmdlist, "\n")
 				sendMsg(update.Message.Chat.ID, text, bot)
 				continue
 			}
+
 		}
 
 		//记录请求
@@ -377,4 +397,14 @@ func getFieldInfo(value reflect.Value) string {
 		}
 	}
 	return strings.Join(st, "\n")
+}
+
+// 调用其他网址的API函数
+func callAPI(args string) string {
+	// 根据参数访问其他网址的API
+
+	// 执行API请求的逻辑...
+
+	// 返回API响应
+	return "API响应"
 }
