@@ -21,7 +21,17 @@ var (
 	LOG        = "logrus.log"
 	log        *logrus.Logger
 	configName = "config.yaml"
+	bot        *tgbotapi.BotAPI
+	userStates map[int64]*UserState
 )
+
+type UserState struct {
+	Uid               int
+	LastCallbackMsgID int
+	LastCallbackData  string
+	ErrorCode         string
+	//Sign              bool //true代表已处理
+}
 
 func initConfig() {
 	files, err := ioutil.ReadFile("config.yaml")
@@ -45,8 +55,20 @@ func initConfig() {
 
 var count int
 
+func initBot() {
+	var err error
+	bot, err = tgbotapi.NewBotAPI(Conf.BotToken)
+	if err != nil {
+		log.Error("bot创建出错，错误信息： " + err.Error())
+	}
+	bot.Debug = true
+	log.Printf("Authorized on account: %s  ID: %d", bot.Self.UserName, bot.Self.ID)
+	userStates = make(map[int64]*UserState)
+}
+
 func main() {
 	initConfig()
+	initBot()
 	check := true //开关域名扫描
 	go startBot()
 	if check {
@@ -101,14 +123,6 @@ func main() {
 }
 
 func CheckDomain() {
-	bot, err := tgbotapi.NewBotAPI(Conf.BotToken)
-	if err != nil {
-		log.Error("生成bot接口错误，错误信息： " + err.Error())
-		fmt.Println("生成bot接口错误，错误信息： " + err.Error())
-	}
-	bot.Buffer = 200
-	bot.Debug = true
-	log.Printf("Authorized on account %s", bot.Self.UserName)
 	tmpMsg := []string{}
 	if len(Conf.DomainName) == 0 {
 		return
@@ -169,11 +183,6 @@ func sendMsg(chatID int64, msg string, bot *tgbotapi.BotAPI) {
 }
 
 func startBot() {
-	bot, err := tgbotapi.NewBotAPI(Conf.BotToken)
-	if err != nil {
-		log.Error("bot创建出错，错误信息： " + err.Error())
-	}
-	bot.Debug = true
 	//设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
 	//这里注释的是只处理最新的更新
@@ -190,21 +199,15 @@ func startBot() {
 	u.Timeout = 60
 	updateChan, _ := bot.GetUpdatesChan(u)
 
-	//// 设置Webhook地址，用于接收电报机器人的回调信息
-	//webhookURL := "https://your-webhook-url.com/your-webhook-path"
-	//_, err = bot.SetWebhook(tgbotapi.NewWebhookWithCert(webhookURL, "cert.pem"))
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	////使用webhook方式获取更新
-	//http.HandleFunc("/your")
-
 	// 处理接收到的更新
 	for update := range updateChan {
 		if update.Message == nil { // 忽略非文本消息
 			continue
 		}
-
+		if update.CallbackQuery != nil {
+			handleCallback(update.CallbackQuery)
+			continue
+		}
 		//仅开头为"/"才处理
 		//单重命令(英文)，示例  /hello
 		cmd := update.Message.Command()
@@ -240,10 +243,20 @@ func startBot() {
 			case "myid":
 				sendMsg(update.Message.Chat.ID, "myID: "+strconv.Itoa(update.Message.From.ID), bot)
 				continue
+			case "change":
+				nextLevelInlineKeyboard := packDomainKeyboard(Conf.Domains)
+				reply := "选择要修改域名的模块："
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+				msg.ReplyMarkup = nextLevelInlineKeyboard
+				_, err := bot.Send(msg)
+				if err != nil {
+					log.Println(err)
+				}
+				continue
 			case "check":
 				CheckDomain()
 				continue
-			default:
+			case "list":
 				cmdlist := []string{
 					"命令列表大全:",
 					"/hello",
@@ -255,14 +268,15 @@ func startBot() {
 					"/add/",
 					"/delete/",
 					"/remove",
-					"/错误上报/{错误域名}",
-					"/错误已处理/{群名称}/{域名}",
 					"/上葡京域名",
 					"/金沙域名",
-					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,SZ,Shop,LuHai}",
+					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,SZ,Shop,LuHai,Voya}",
 				}
+				strconv.FormatInt(4, 2)
 				text := strings.Join(cmdlist, "\n")
 				sendMsg(update.Message.Chat.ID, text, bot)
+				continue
+			default:
 				continue
 			}
 
@@ -302,9 +316,15 @@ func startBot() {
 						if strings.ToLower(field.Name) == strings.ToLower(arr[2]) {
 							fieldValue := v.FieldByName(field.Name)
 							sign = true
-							text := getFieldInfo(fieldValue)
-							sendMsg(update.Message.Chat.ID, text, bot)
+							result := checkAuth(update.Message.Chat.ID, arr[2])
+							if result {
+								text := getFieldInfo(fieldValue)
+								sendMsg(update.Message.Chat.ID, text, bot)
+								break
+							}
+							sendMsg(update.Message.Chat.ID, "权限不足", bot)
 							break
+
 						}
 					}
 					if !sign {
@@ -346,7 +366,7 @@ func startBot() {
 			}
 		}
 
-		//// 处理用户的文本输入，可以根据需要进行逻辑处理
+		// 处理用户的文本输入，可以根据需要进行逻辑处理
 		//reply := "收到您的输入：" + update.Message.Text
 		//
 		//msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
@@ -407,4 +427,100 @@ func callAPI(args string) string {
 
 	// 返回API响应
 	return "API响应"
+}
+
+func packDomainKeyboard(domains map[string]int64) tgbotapi.InlineKeyboardMarkup {
+	nextLevelInlineKeyboard := tgbotapi.NewInlineKeyboardMarkup()
+	row := []tgbotapi.InlineKeyboardButton{}
+	for k := range domains {
+		button := tgbotapi.NewInlineKeyboardButtonData(k, k)
+		row = append(row, button)
+		if len(row) == 3 {
+			nextLevelInlineKeyboard.InlineKeyboard = append(nextLevelInlineKeyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(row...))
+			row = []tgbotapi.InlineKeyboardButton{}
+		}
+	}
+	// 如果最后一行只有一个按钮，将其添加到内联键盘
+	if len(row) == 1 {
+		nextLevelInlineKeyboard.InlineKeyboard = append(nextLevelInlineKeyboard.InlineKeyboard, tgbotapi.NewInlineKeyboardRow(row...))
+	}
+	return nextLevelInlineKeyboard
+}
+
+func handleCallback(callback *tgbotapi.CallbackQuery) {
+
+	switch callback.Data {
+	case "盘口":
+		// 生成选项一的下一层内联键盘
+		nextLevelInlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("601", "601"), // 错误码后续在这里更新，并增加case的处理
+			),
+		)
+		// 更新原始消息的内联键盘为下一层内联键盘
+		//editMsg := tgbotapi.NewEditMessageReplyMarkup(callback.Message.Chat.ID, callback.Message.MessageID, nextLevelInlineKeyboard)
+		//_, err := bot.Send(editMsg)
+
+		reply := "选择错误码："
+		editMsgText := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, reply)
+		editMsgText.ReplyMarkup = &nextLevelInlineKeyboard // 设置新的内联键盘
+		_, err := bot.Send(editMsgText)
+		if err != nil {
+			log.Println(err)
+		}
+
+	default:
+		// 处理未知的回调查询数据
+	}
+}
+
+func checkAuth(groupID int64, moduleName string) bool {
+	//先查找groupID权限
+	authID := ""
+	for _, v := range Conf.GroupAuth {
+		if v.ID == groupID {
+			authID = v.AuthID
+		}
+	}
+	//查找模块需要什么权限
+	moduleAuthID := getmoduleAuthID(moduleName)
+
+	if authID != "" && moduleAuthID != 0 {
+		authid, err := strconv.ParseInt(authID, 2, 64)
+		if err != nil {
+			return false
+		}
+		return int(authid)&moduleAuthID == moduleAuthID
+	}
+	return false
+}
+
+func getmoduleAuthID(moduleName string) int {
+	switch moduleName {
+	case "ICEX":
+		return ICEX
+	case "M1F":
+		return M1F
+	case "MIAX":
+		return MIAX
+	case "TGX":
+		return TGX
+	case "VGX":
+		return VGX
+	case "ISE":
+		return ISE
+	case "BitBank":
+		return BitBank
+	case "SZ":
+		return SZ
+	case "Shop":
+		return Shop
+	case "LuHai":
+		return LuHai
+	case "Voya":
+		return Voya
+	default:
+		return 0
+	}
+
 }

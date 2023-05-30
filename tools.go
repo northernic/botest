@@ -17,3 +17,22 @@ func getRandnum() string {
 	randomNumberString := fmt.Sprintf("%04d", randomNumber)
 	return randomNumberString
 }
+
+// 按位与操作函数
+func bitwiseAnd(st1, st2 string) string {
+	if len(st1) != len(st2) {
+		return ""
+	}
+
+	length := len(st1)
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		if st1[i] == '1' && st2[i] == '1' {
+			result[i] = '1'
+		} else {
+			result[i] = '0'
+		}
+	}
+
+	return string(result)
+}
