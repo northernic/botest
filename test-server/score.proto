@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package test_server;
+option go_package = "./test_server";
+message Response{
+  string data = 1;
+  int32 status=2;
+}
+
+message SearchRequest {
+  string query = 1;
+  int32 page_number = 2;
+  int32 result_per_page = 3;
+}
+
+message Foo {
+  reserved 2, 15, 9 to 11; // 保留2，15，9到11这些标识号
+}
+//
+

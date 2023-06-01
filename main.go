@@ -38,6 +38,9 @@ func initConfig() {
 	if err != nil {
 		fmt.Println("读取配置失败,err: ", err.Error())
 	}
+
+	//model := make(map[string]Model)
+
 	err = yaml.Unmarshal(files, &Conf)
 	if err != nil {
 		fmt.Println("读取配置失败,err: ", err.Error())
@@ -294,11 +297,22 @@ func startBot() {
 			switch arr[1] {
 			case "上葡京域名":
 				text := Conf.ShangPuJing
-				sendMsg(update.Message.Chat.ID, text, bot)
-				//返回金沙所有域名
+				result := checkAuth(update.Message.Chat.ID, "shangpujing")
+				if result {
+					sendMsg(update.Message.Chat.ID, text, bot)
+					continue
+				}
+				sendMsg(update.Message.Chat.ID, "权限不足", bot)
+
 			case "金沙域名":
 				text := Conf.JinSha
-				sendMsg(update.Message.Chat.ID, text, bot)
+				result := checkAuth(update.Message.Chat.ID, "jinsha")
+				if result {
+					sendMsg(update.Message.Chat.ID, text, bot)
+					//返回金沙所有域名
+					continue
+				}
+				sendMsg(update.Message.Chat.ID, "权限不足", bot)
 			case "show":
 				if len(arr) > 2 && arr[2] != "" {
 					//标记是否找到对应模块
@@ -316,7 +330,7 @@ func startBot() {
 						if strings.ToLower(field.Name) == strings.ToLower(arr[2]) {
 							fieldValue := v.FieldByName(field.Name)
 							sign = true
-							result := checkAuth(update.Message.Chat.ID, arr[2])
+							result := checkAuth(update.Message.Chat.ID, strings.ToLower(arr[2]))
 							if result {
 								text := getFieldInfo(fieldValue)
 								sendMsg(update.Message.Chat.ID, text, bot)
@@ -497,28 +511,32 @@ func checkAuth(groupID int64, moduleName string) bool {
 
 func getmoduleAuthID(moduleName string) int {
 	switch moduleName {
-	case "ICEX":
+	case "icex":
 		return ICEX
-	case "M1F":
+	case "m1f":
 		return M1F
-	case "MIAX":
+	case "miax":
 		return MIAX
-	case "TGX":
+	case "tgx":
 		return TGX
-	case "VGX":
+	case "vgx":
 		return VGX
-	case "ISE":
+	case "ise":
 		return ISE
-	case "BitBank":
+	case "bitbank":
 		return BitBank
-	case "SZ":
+	case "sz":
 		return SZ
-	case "Shop":
+	case "shop":
 		return Shop
-	case "LuHai":
+	case "luhai":
 		return LuHai
-	case "Voya":
+	case "voya":
 		return Voya
+	case "jinsha":
+		return JinSha
+	case "shangpujing":
+		return ShangPuJing
 	default:
 		return 0
 	}

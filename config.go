@@ -56,4 +56,6 @@ const (
 	Shop
 	LuHai
 	Voya
+	JinSha
+	ShangPuJing
 )
