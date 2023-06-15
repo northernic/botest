@@ -273,7 +273,7 @@ func startBot() {
 					"/remove",
 					"/上葡京域名",
 					"/金沙域名",
-					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,SZ,Shop,LuHai,Voya}",
+					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,Shop,Voya}",
 				}
 				strconv.FormatInt(4, 2)
 				text := strings.Join(cmdlist, "\n")
