@@ -16,12 +16,11 @@ type Config struct {
 	VGX          Model                `yaml:"欧美VGX"`
 	ISE          Model                `yaml:"欧美ISE"`
 	BitBank      Model                `yaml:"比特银行"`
-	SZ           Model                `yaml:"数字中国"`
 	Shop         Model                `yaml:"跨境电商"`
 	JinSha1      Model                `yaml:"2.1金沙项目"`
 	ShangPuJing1 Model                `yaml:"2.1上普京项目"`
-	LuHai        Model                `yaml:"陆海新通道"`
 	Voya         Model                `yaml:"voya"`
+	Aquis        Model                `yaml:"Aquis"`
 	GroupAuth    map[string]GroupAuth `yaml:"groupAuth"`
 }
 
@@ -54,7 +53,7 @@ const (
 	BitBank
 	SZ
 	Shop
-	LuHai
+	Aquis
 	Voya
 	JinSha
 	ShangPuJing

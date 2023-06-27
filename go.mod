@@ -6,7 +6,6 @@ require (
 	github.com/go-telegram-bot-api/telegram-bot-api v4.6.4+incompatible
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/sirupsen/logrus v1.9.0
-	google.golang.org/protobuf v1.26.0
 )
 
 require (

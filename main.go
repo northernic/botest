@@ -37,6 +37,7 @@ func initConfig() {
 	files, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
 		fmt.Println("读取配置失败,err: ", err.Error())
+		panic(err)
 	}
 
 	//model := make(map[string]Model)
@@ -44,12 +45,14 @@ func initConfig() {
 	err = yaml.Unmarshal(files, &Conf)
 	if err != nil {
 		fmt.Println("读取配置失败,err: ", err.Error())
+		panic(err)
 	}
 	//初始化log
 	log = logrus.New()
 	file, err := os.OpenFile(LOG, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		log.Error("Failed to open log file: ", err)
+		panic(err)
 	} else {
 		log.SetOutput(file)
 	}
@@ -273,7 +276,7 @@ func startBot() {
 					"/remove",
 					"/上葡京域名",
 					"/金沙域名",
-					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,Shop,Voya}",
+					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,Shop,Voya,Aquis}",
 				}
 				strconv.FormatInt(4, 2)
 				text := strings.Join(cmdlist, "\n")
@@ -510,6 +513,7 @@ func checkAuth(groupID int64, moduleName string) bool {
 }
 
 func getmoduleAuthID(moduleName string) int {
+	moduleName = strings.ToLower(moduleName)
 	switch moduleName {
 	case "icex":
 		return ICEX
@@ -529,8 +533,8 @@ func getmoduleAuthID(moduleName string) int {
 		return SZ
 	case "shop":
 		return Shop
-	case "luhai":
-		return LuHai
+	case "aquis":
+		return Aquis
 	case "voya":
 		return Voya
 	case "jinsha":
