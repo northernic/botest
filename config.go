@@ -21,6 +21,7 @@ type Config struct {
 	ShangPuJing1 Model                `yaml:"2.1上普京项目"`
 	Voya         Model                `yaml:"voya"`
 	Aquis        Model                `yaml:"Aquis"`
+	Jason        Model                `yaml:"律师事务所"`
 	GroupAuth    map[string]GroupAuth `yaml:"groupAuth"`
 }
 
@@ -57,4 +58,5 @@ const (
 	Voya
 	JinSha
 	ShangPuJing
+	Jason
 )
