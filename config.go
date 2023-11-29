@@ -1,33 +1,23 @@
 package main
 
 type Config struct {
-	DomainName  []string         `yaml:"domainName"`
-	Domains     map[string]int64 `yaml:"Domains"`
-	GroupID     int64            `yaml:"groupID"`
-	BotToken    string           `yaml:"botToken"`
-	ShangPuJing string           `yaml:"ShangPuJing"`
-	JinSha      string           `yaml:"JinSha"`
-
-	ICEX         Model                `yaml:"欧美ICEX"`
-	M1F          Model                `yaml:"欧美M1F"`
-	LSEX         Model                `yaml:"欧美LSEX"`
-	MIAX         Model                `yaml:"欧美MIAX"`
-	TGX          Model                `yaml:"欧美TGX"`
-	VGX          Model                `yaml:"欧美VGX"`
-	ISE          Model                `yaml:"欧美ISE"`
-	BitBank      Model                `yaml:"比特银行"`
-	Shop         Model                `yaml:"跨境电商"`
-	JinSha1      Model                `yaml:"2.1金沙项目"`
-	ShangPuJing1 Model                `yaml:"2.1上普京项目"`
-	Voya         Model                `yaml:"voya"`
-	Aquis        Model                `yaml:"Aquis"`
-	Jason        Model                `yaml:"律师事务所"`
-	GroupAuth    map[string]GroupAuth `yaml:"groupAuth"`
+	DomainName []string             `yaml:"domainName"`
+	Domains    map[string]int64     `yaml:"Domains"`
+	GroupID    int64                `yaml:"groupID"`
+	BotToken   string               `yaml:"botToken"`
+	GroupAuth  map[string]GroupAuth `yaml:"groupAuth"`
+	Redis      Redis                `yaml:"redis"`
 }
 
 type GroupAuth struct {
 	ID     int64  `yaml:"id"`
 	AuthID string `yaml:"authID"`
+}
+
+type Redis struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 type Model struct {

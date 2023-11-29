@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bot/cst"
+	"context"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/go-yaml/yaml"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/signal"
 	"reflect"
@@ -16,65 +16,17 @@ import (
 	"time"
 )
 
-var (
-	Conf       = Config{}
-	LOG        = "logrus.log"
-	log        *logrus.Logger
-	configName = "config.yaml"
-	bot        *tgbotapi.BotAPI
-	userStates map[int64]*UserState
-)
+// 初始化
+func init() {
+	initConfig() //初始化配置文件
+	initLog()    //初始化日志
+	initBot()    //初始化bot
+	initRedis()  //初始化redis
 
-type UserState struct {
-	Uid               int
-	LastCallbackMsgID int
-	LastCallbackData  string
-	ErrorCode         string
-	//Sign              bool //true代表已处理
-}
-
-func initConfig() {
-	files, err := ioutil.ReadFile("config.yaml")
-	if err != nil {
-		fmt.Println("读取配置失败,err: ", err.Error())
-		panic(err)
-	}
-
-	//model := make(map[string]Model)
-
-	err = yaml.Unmarshal(files, &Conf)
-	if err != nil {
-		fmt.Println("读取配置失败,err: ", err.Error())
-		panic(err)
-	}
-	//初始化log
-	log = logrus.New()
-	file, err := os.OpenFile(LOG, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
-	if err != nil {
-		log.Error("Failed to open log file: ", err)
-		panic(err)
-	} else {
-		log.SetOutput(file)
-	}
-	fmt.Println("读取配置成功")
-}
-
-var count int
-
-func initBot() {
-	var err error
-	bot, err = tgbotapi.NewBotAPI(Conf.BotToken)
-	if err != nil {
-		log.Error("bot创建出错，错误信息： " + err.Error())
-	}
-	bot.Debug = true
-	log.Printf("Authorized on account: %s  ID: %d", bot.Self.UserName, bot.Self.ID)
-	userStates = make(map[int64]*UserState)
 }
 
 func main() {
-	initConfig()
-	initBot()
+
 	check := true //开关域名扫描
 	go startBot()
 	if check {
@@ -128,54 +80,6 @@ func main() {
 	select {}
 }
 
-func CheckDomain() {
-	tmpMsg := []string{}
-	if len(Conf.DomainName) == 0 {
-		return
-	}
-	for _, v := range Conf.DomainName {
-		timeout := 3 * time.Second
-		client := http.Client{
-			Timeout: timeout,
-		}
-		fmt.Println("正在访问： ", v)
-		resp, err := client.Get(v)
-		if err != nil {
-			tmpMsg = append(tmpMsg, "访问出错，该域名为："+v+"\n")
-			log.Error("访问出错，该域名为：" + v)
-			fmt.Println("域名 " + v + " 信息异常")
-		} else {
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				tmpMsg = append(tmpMsg, "状态码异常，该域名为："+v+"\n")
-				log.Error("状态码异常，该域名为：" + v)
-				fmt.Println("域名 " + v + " 信息异常")
-			} else {
-				fmt.Println("域名 " + v + " 信息正常")
-			}
-		}
-	}
-	l := len(tmpMsg)
-	if l != 0 {
-		//10条错误发送一次tel
-		if l <= 10 {
-			sendMsg(Conf.GroupID, strings.Join(tmpMsg, " "), bot)
-		} else {
-			for i := 0; i < l; i += 10 {
-				end := i + 10
-				if end > l {
-					end = l
-				}
-				sendMsg(Conf.GroupID, strings.Join(tmpMsg[i:end], " "), bot)
-			}
-		}
-		fmt.Println("域名解析完毕,记录域名错误成功")
-	} else {
-		fmt.Println("域名解析完毕,域名信息正常")
-		log.Info(time.Now(), " 域名信息正常")
-	}
-}
-
 // 发送消息给指定聊天ID
 func sendMsg(chatID int64, msg string, bot *tgbotapi.BotAPI) {
 	if msg == "" {
@@ -220,71 +124,8 @@ func startBot() {
 
 		cmd = strings.ToLower(cmd)
 		if len(cmd) != 0 {
-			switch cmd {
-			case "hello":
-				sendMsg(update.Message.Chat.ID, "hello,world!", bot)
-				continue
-			case "groupid":
-				sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
-				continue
-			case "remove":
-				// 创建一个发送给用户的空的ReplyKeyboardRemove
-				removeKeyboard := tgbotapi.NewRemoveKeyboard(false)
-
-				// 设置要移除键盘的目标聊天ID
-				chatID := int64(update.Message.Chat.ID) // 替换为实际的聊天ID,id为群id的时候是清除全部群成员的自定义键盘
-
-				// 替换为实际的聊天ID,个人的话可以用这个
-				//chatID := int64(update.Message.From.ID)
-
-				// 创建一个新的消息配置
-				msg := tgbotapi.NewMessage(chatID, "移除自定义键盘")
-				msg.ReplyMarkup = removeKeyboard
-
-				// 发送消息
-				_, err := bot.Send(msg)
-				if err != nil {
-					log.Panic(err)
-				}
-			case "myid":
-				sendMsg(update.Message.Chat.ID, "myID: "+strconv.Itoa(update.Message.From.ID), bot)
-				continue
-			case "change":
-				nextLevelInlineKeyboard := packDomainKeyboard(Conf.Domains)
-				reply := "选择要修改域名的模块："
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
-				msg.ReplyMarkup = nextLevelInlineKeyboard
-				_, err := bot.Send(msg)
-				if err != nil {
-					log.Println(err)
-				}
-				continue
-			case "check":
-				CheckDomain()
-				continue
-			case "list":
-				cmdlist := []string{
-					"命令列表大全:",
-					"/hello",
-					"/check", //检查域名
-					"/groupID",
-					"/myID",
-					"/show/{模块名称}",
-					"/change/{模块名称}",
-					"/add/",
-					"/delete/",
-					"/remove",
-					"/上葡京域名",
-					"/金沙域名",
-					"模块名称：{ICEX,M1F,MIAX,TGX,VGX,ISE,BitBank,Shop,Voya,Aquis,Jason}",
-				}
-				strconv.FormatInt(4, 2)
-				text := strings.Join(cmdlist, "\n")
-				sendMsg(update.Message.Chat.ID, text, bot)
-				continue
-			default:
-				continue
-			}
+			HandleCmd(update, cmd)
+			continue
 
 		}
 
@@ -298,24 +139,6 @@ func startBot() {
 				continue
 			}
 			switch arr[1] {
-			case "上葡京域名":
-				text := Conf.ShangPuJing
-				result := checkAuth(update.Message.Chat.ID, "shangpujing")
-				if result {
-					sendMsg(update.Message.Chat.ID, text, bot)
-					continue
-				}
-				sendMsg(update.Message.Chat.ID, "权限不足", bot)
-
-			case "金沙域名":
-				text := Conf.JinSha
-				result := checkAuth(update.Message.Chat.ID, "jinsha")
-				if result {
-					sendMsg(update.Message.Chat.ID, text, bot)
-					//返回金沙所有域名
-					continue
-				}
-				sendMsg(update.Message.Chat.ID, "权限不足", bot)
 			case "show":
 				if len(arr) > 2 && arr[2] != "" {
 					//标记是否找到对应模块
@@ -358,15 +181,24 @@ func startBot() {
 				if len(arr) > 2 && arr[2] != "" {
 
 				}
-
+			case "setcode":
+				if len(arr) > 2 && arr[2] != "" {
+					err := SetRandomCode(arr[2])
+					if err != nil {
+						sendMsg(update.Message.Chat.ID, "设置随机码失败", bot)
+						continue
+					}
+					sendMsg(update.Message.Chat.ID, "设置兑换码成功", bot)
+					continue
+				}
 			case "setdomain":
 				//向指定url发送https post 请求
 				//bot.SetWebhook()
 
 				//测试修改config文件
 			//case "test":
-			//	Conf.JinSha = "testModify"
-			//	configData, err := yaml.Marshal(&Conf)
+			//	globalConf.JinSha = "testModify"
+			//	configData, err := yaml.Marshal(&globalConf)
 			//	if err != nil {
 			//		fmt.Printf("Error marshaling config data: %s\n", err)
 			//		continue
@@ -383,14 +215,36 @@ func startBot() {
 			}
 		}
 
-		// 处理用户的文本输入，可以根据需要进行逻辑处理
+		if update.Message.Chat.Type == cst.ChatTypeGroup {
+			if mentionBot(update.Message, bot.Self.UserName) {
+				replyText := "你在叫我吗？\n"
+				cmdlist := []string{
+					"测试命令列表大全:",
+					"/hello",
+					//"/check", //检查域名
+					"/groupID",
+					"/getcode",
+					"/setcode/{随机码1;随机码2;随机码3;...}",
+					"/myID",
+					//"/show/{模块名称}",
+					//"/change/{模块名称}",
+					//"/add/",
+					//"/delete/",
+					//"/remove",
+					//"模块名称：{}",
+				}
+				strconv.FormatInt(4, 2)
+				text := strings.Join(cmdlist, "\n")
+				sendMsg(update.Message.Chat.ID, replyText+text, bot)
+				continue
+			}
+
+		}
+
+		//处理用户的文本输入，可以根据需要进行逻辑处理
 		//reply := "收到您的输入：" + update.Message.Text
-		//
-		//msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
-		//_, err := bot.Send(msg)
-		//if err != nil {
-		//	log.Println(err)
-		//}
+		//sendMsg(update.Message.Chat.ID, reply, bot)
+		continue
 	}
 
 }
@@ -494,7 +348,7 @@ func handleCallback(callback *tgbotapi.CallbackQuery) {
 func checkAuth(groupID int64, moduleName string) bool {
 	//先查找groupID权限
 	authID := ""
-	for _, v := range Conf.GroupAuth {
+	for _, v := range globalConf.GroupAuth {
 		if v.ID == groupID {
 			authID = v.AuthID
 		}
@@ -547,4 +401,126 @@ func getmoduleAuthID(moduleName string) int {
 		return 0
 	}
 
+}
+
+func GetRandomCode() ([]string, error) {
+	codes, err := rd.SPopN(context.Background(), GiftCodeKey, 5).Result()
+	if err != nil {
+		log.Error("获取随机码失败,err =", err)
+		return nil, err
+	}
+	return codes, nil
+
+}
+
+func SetRandomCode(codeStr string) error {
+	codes := strings.Split(codeStr, ";")
+	for _, v := range codes {
+		err := rd.SAdd(context.Background(), GiftCodeKey, v).Err()
+		if err != nil {
+			log.Error("添加随机码失败,err =", err)
+			return err
+		}
+	}
+	return nil
+}
+
+// mentionBot检查消息是否包含对机器人的提及
+func mentionBot(message *tgbotapi.Message, botUsername string) bool {
+	if message == nil {
+		return false
+	}
+	if message.Entities == nil {
+		return false
+	}
+	for _, entity := range *message.Entities {
+		if entity.Type == "mention" {
+			mention := message.Text[entity.Offset : entity.Offset+entity.Length]
+			if mention == "@"+botUsername {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// 处理单独命令
+func HandleCmd(update tgbotapi.Update, cmd string) {
+	switch cmd {
+	case "hello":
+		sendMsg(update.Message.Chat.ID, "hello,world!", bot)
+		break
+	case "groupid":
+		sendMsg(update.Message.Chat.ID, "groupID: "+strconv.Itoa(int(update.Message.Chat.ID)), bot)
+		break
+	case "remove":
+		// 创建一个发送给用户的空的ReplyKeyboardRemove
+		removeKeyboard := tgbotapi.NewRemoveKeyboard(false)
+
+		// 设置要移除键盘的目标聊天ID
+		chatID := int64(update.Message.Chat.ID) // 替换为实际的聊天ID,id为群id的时候是清除全部群成员的自定义键盘
+
+		// 替换为实际的聊天ID,个人的话可以用这个
+		//chatID := int64(update.Message.From.ID)
+
+		// 创建一个新的消息配置
+		msg := tgbotapi.NewMessage(chatID, "移除自定义键盘")
+		msg.ReplyMarkup = removeKeyboard
+
+		// 发送消息
+		_, err := bot.Send(msg)
+		if err != nil {
+			log.Panic(err)
+		}
+	case "myid":
+		sendMsg(update.Message.Chat.ID, "myID: "+strconv.Itoa(update.Message.From.ID), bot)
+		break
+	case "change":
+		nextLevelInlineKeyboard := packDomainKeyboard(globalConf.Domains)
+		reply := "选择要修改域名的模块："
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+		msg.ReplyMarkup = nextLevelInlineKeyboard
+		_, err := bot.Send(msg)
+		if err != nil {
+			log.Println(err)
+		}
+		break
+	case "check":
+		CheckDomain()
+		break
+	case "getcode":
+		codes, err := GetRandomCode()
+		if err != nil {
+			sendMsg(update.Message.Chat.ID, "获取随机码失败", bot)
+			break
+		}
+		if len(codes) == 0 {
+			sendMsg(update.Message.Chat.ID, "兑换码已用完", bot)
+			break
+		}
+		sendMsg(update.Message.Chat.ID, strings.Join(codes, "\n"), bot)
+		break
+	case "list":
+		cmdlist := []string{
+			"命令列表大全:",
+			"/hello",
+			"/check", //检查域名
+			"/groupID",
+			"/getcode",
+			"/setcode/{随机码1;随机码2;随机码3;...}",
+			"/myID",
+			"/show/{模块名称}",
+			"/change/{模块名称}",
+			"/add/",
+			"/delete/",
+			"/remove",
+			"模块名称：{}",
+		}
+		strconv.FormatInt(4, 2)
+		text := strings.Join(cmdlist, "\n")
+		sendMsg(update.Message.Chat.ID, text, bot)
+		break
+	default:
+		break
+	}
 }
