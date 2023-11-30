@@ -94,6 +94,7 @@ func HandleCmd(update tgbotapi.Update, cmd string) {
 			break
 		}
 		cst.IsSend = true
+		sendCodeTimer2(bot)
 		sendMsg(update.Message.Chat.ID, "兑换码开始发放", bot)
 		break
 	case "stopsendcode":
@@ -206,12 +207,12 @@ func HandleMulCmd(update tgbotapi.Update, arr []string) {
 			sendMsg(update.Message.Chat.ID, "请输入时间间隔", bot)
 			break
 		}
-		intervalTimeNum, err := strconv.Atoi(intervalTime)
-		if err != nil {
-			sendMsg(update.Message.Chat.ID, "请输入正确的时间间隔(纯数字)", bot)
+		isValid := cst.CheckInterval(intervalTime)
+		if !isValid {
+			sendMsg(update.Message.Chat.ID, "请输入正确的时间间隔(1h2m3s)-1小时2分钟3秒", bot)
 			break
 		}
-		cst.SendCodeInterval = time.Duration(intervalTimeNum) * time.Second
+		cst.SendCodeInterval = intervalTime
 		sendMsg(update.Message.Chat.ID, "设置时间间隔成功", bot)
 		break
 	case "setcodenum":
@@ -227,6 +228,21 @@ func HandleMulCmd(update tgbotapi.Update, arr []string) {
 		}
 		cst.CodeNum = int64(num)
 		sendMsg(update.Message.Chat.ID, "设置兑换码数量成功", bot)
+		break
+	case "stopsendcode":
+		entryIDStr := arr[2]
+		if entryIDStr == "" {
+			sendMsg(update.Message.Chat.ID, "请输入要停止的任务id", bot)
+			break
+		}
+		entryID, err := strconv.Atoi(entryIDStr)
+		if err != nil {
+			sendMsg(update.Message.Chat.ID, "请输入要停止的任务id(纯数字)", bot)
+			break
+		}
+		stopCodeTimer(entryID)
+
+		sendMsg(update.Message.Chat.ID, "定时任务 ID:"+entryIDStr+" 已停止", bot)
 		break
 	default:
 		//sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{命令}/{模块名}", bot)

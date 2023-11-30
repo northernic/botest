@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/go-yaml/yaml"
+	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
@@ -51,6 +52,7 @@ func initBot() {
 	log.Printf("Authorized on account: %s  ID: %d", bot.Self.UserName, bot.Self.ID)
 	userStates = make(map[int64]*UserState)
 }
+
 func initRedis() {
 	redisCfg := globalConf.Redis
 	client := redis.NewClient(&redis.Options{
@@ -67,4 +69,9 @@ func initRedis() {
 		log.Info("redis connect ping response: pong = ", pong)
 		rd = client
 	}
+}
+
+func initCron() {
+	Cron = cron.New()
+	Cron.Start()
 }

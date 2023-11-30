@@ -18,15 +18,13 @@ func init() {
 	initLog()    //初始化日志
 	initBot()    //初始化bot
 	initRedis()  //初始化redis
-
+	initCron()   //初始化定时任务
 }
 
 func main() {
 
 	//check := true //开关域名扫描
 	go startBot()
-
-	go sendCodeTimer(bot)
 
 	select {}
 }
@@ -47,16 +45,16 @@ func startBot() {
 	//设置机器人接收更新的方式
 	u := tgbotapi.NewUpdate(0)
 	//这里注释的是只处理最新的更新
-	//updates, err := bot.GetUpdates(u)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//if len(updates) > 0 {
-	//	lastUpdate := updates[len(updates)-1]
-	//	offset := lastUpdate.UpdateID + 1
-	//	// 使用 offset 设置下一次获取的起始位置
-	//	u.Offset = offset
-	//}
+	updates, err := bot.GetUpdates(u)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(updates) > 0 {
+		lastUpdate := updates[len(updates)-1]
+		offset := lastUpdate.UpdateID + 1
+		// 使用 offset 设置下一次获取的起始位置
+		u.Offset = offset
+	}
 	u.Timeout = 60
 	updateChan, _ := bot.GetUpdatesChan(u)
 

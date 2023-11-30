@@ -4,68 +4,38 @@ import (
 	"bot/cst"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"os"
-	"os/signal"
+	"github.com/robfig/cron/v3"
+	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
-// 定义时间范围的起止时间
+func sendCodeTimer2(bot *tgbotapi.BotAPI) {
 
-func sendCodeTimer(bot *tgbotapi.BotAPI) {
+	interval := cst.SendCodeInterval
+	entryID, err := Cron.AddFunc("@every "+interval, Send)
+	if err != nil {
+		log.Error("设置定时任务错误", err)
+		sendMsg(globalConf.GroupID.AdminGroupID, "设置定时任务错误", bot)
+	}
 
-	//next := getNextExecutionTime()
-	//
-	//// 创建定时器
-	//timer := time.NewTimer(next.Sub(time.Now()))
-	//// 计数器
-	//count = 1
-	//log.Info(time.Now(), "  ", "Starting")
-	//log.SetReportCaller(true)
-	//
-	//// 等待定时器触发，执行函数
-	//<-timer.C
-	//fmt.Println("Time is up,start to send code")
+	sendMsg(globalConf.GroupID.AdminGroupID, "定时任务已设定,默认1个小时,任务id : "+strconv.Itoa(int(entryID)), bot)
 
-	// 创建 Ticker,之后8小时扫一次
-	ticker := cst.GetTicker()
+}
 
-	// 创建定时器(初始时间1h)
-	//timer := time.NewTimer(cst.SendCodeInterval)
+func Send() {
+	if isWithinTimeRange() && cst.IsSend {
+		fmt.Println(time.Now())
+		fmt.Println("Time is up,start to send code")
+		sendCode(bot, globalConf.GroupID.UserGroupID)
+		count++
+		log.Info(time.Now(), "第 ", count, " 次运行")
+	}
+	return
+}
 
-	// 定时器触发时执行的函数
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-
-				if cst.StartTime.IsZero() || cst.EndTime.IsZero() {
-					//sendMsg(globalConf.GroupID.AdminGroupID, "请先设置开始时间和结束时间", bot)
-					log.Info("请先设置开始时间和结束时间")
-					break
-				}
-				if isWithinTimeRange() && cst.IsSend {
-					fmt.Println(time.Now())
-					fmt.Println("Time is up,start to send code")
-					sendCode(bot, globalConf.GroupID.UserGroupID)
-					count++
-					log.Info(time.Now(), "第 ", count, " 次运行")
-				}
-
-			}
-		}
-	}()
-	// 处理 Ctrl+C 信号
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-	// 等待信号通知
-	<-signals
-	//
-	// 收到信号后关闭 ticker
-	ticker.Stop()
-
+func stopCodeTimer(entryID int) {
+	Cron.Remove(cron.EntryID(entryID))
 }
 
 // getNextExecutionTime 计算下一次执行任务的时间
