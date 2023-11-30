@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bot/cst"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"os"
@@ -11,9 +12,6 @@ import (
 )
 
 // 定义时间范围的起止时间
-var startTime = 0 // 每天的开始时间（小时）
-var endTime = 0   // 次日的结束时间（小时）
-var IsSend = true
 
 func sendCodeTimer(bot *tgbotapi.BotAPI) {
 
@@ -31,7 +29,7 @@ func sendCodeTimer(bot *tgbotapi.BotAPI) {
 	//fmt.Println("Time is up,start to send code")
 
 	// 创建 Ticker,之后8小时扫一次
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := cst.GetTicker()
 
 	// 定时器触发时执行的函数
 	go func() {
@@ -39,10 +37,12 @@ func sendCodeTimer(bot *tgbotapi.BotAPI) {
 			select {
 			case <-ticker.C:
 
-				if startTime == endTime && endTime == 0 {
-					sendMsg(globalConf.GroupID.AdminGroupID, "请先设置开始时间和结束时间", bot)
+				if cst.StartTime.IsZero() || cst.EndTime.IsZero() {
+					//sendMsg(globalConf.GroupID.AdminGroupID, "请先设置开始时间和结束时间", bot)
+					log.Info("请先设置开始时间和结束时间")
+					break
 				}
-				if isWithinTimeRange() && IsSend {
+				if isWithinTimeRange() && cst.IsSend {
 					fmt.Println(time.Now())
 					fmt.Println("Time is up,start to send code")
 					sendCode(bot, globalConf.GroupID.UserGroupID)
@@ -66,22 +66,22 @@ func sendCodeTimer(bot *tgbotapi.BotAPI) {
 }
 
 // getNextExecutionTime 计算下一次执行任务的时间
-func getNextExecutionTime() time.Time {
-	now := time.Now()
-	var next time.Time
-	if now.Hour() >= startTime || now.Hour() < endTime {
-		next = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()+1, 0, 0, 0, now.Location())
-	} else {
-		next = time.Date(now.Year(), now.Month(), now.Day(), startTime, 0, 0, 0, now.Location())
-	}
-	return next
-}
+//func getNextExecutionTime() time.Time {
+//	now := time.Now()
+//	var next time.Time
+//	if now.Hour() >= startTime || now.Hour() < endTime {
+//		next = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()+1, 0, 0, 0, now.Location())
+//	} else {
+//		next = time.Date(now.Year(), now.Month(), now.Day(), startTime, 0, 0, 0, now.Location())
+//	}
+//	return next
+//}
 
 // isWithinTimeRange 检查当前时间是否在12:00至22:00之间
 func isWithinTimeRange() bool {
 	now := time.Now()
-	return now.Hour() >= startTime || now.Hour() < endTime
-	//return true
+	result := now.After(cst.StartTime) && now.Before(cst.EndTime)
+	return result
 }
 
 // send 发送兑换码
@@ -98,6 +98,10 @@ func sendCode(bot *tgbotapi.BotAPI, groupID int64) {
 		sendMsg(globalConf.GroupID.AdminGroupID, "兑换码已用完", bot)
 		return
 	}
-	sendMsg(groupID, "兑换码:\n"+strings.Join(codes, "\n"), bot)
+	text := "兑换码:\n" + strings.Join(codes, "\n")
+	if cst.ActivityText != "" {
+		text = cst.ActivityText + "\n" + text
+	}
+	sendMsg(groupID, text, bot)
 	return
 }
