@@ -1,19 +1,15 @@
 package main
 
 import (
-	"bot/cst"
+	"bot/utils"
 	"context"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/go-yaml/yaml"
 	"io/ioutil"
-	"os"
-	"os/signal"
 	"reflect"
 	"strconv"
 	"strings"
-	"syscall"
-	"time"
 )
 
 // 初始化
@@ -27,56 +23,11 @@ func init() {
 
 func main() {
 
-	check := true //开关域名扫描
+	//check := true //开关域名扫描
 	go startBot()
-	if check {
-		//启动先扫描一遍
-		CheckDomain()
 
-		//八小时跑一次
-		now := time.Now()
-		var next time.Time
-		if now.Hour() < 24 {
-			next = time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/8+1)*8, 0, 0, 0, now.Location())
-		} else {
-			next = time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-		}
-		// 创建定时器
-		timer := time.NewTimer(next.Sub(now))
-		// 计数器
-		count = 1
-		log.Info(time.Now(), "  ", "Starting")
-		log.SetReportCaller(true)
-		// 等待定时器触发，执行函数
-		<-timer.C
-		fmt.Println("Time is up,start Checking")
-		CheckDomain()
+	go sendCodeTimer(bot)
 
-		// 创建 Ticker,之后8小时扫一次
-		ticker := time.NewTicker(8 * time.Hour)
-
-		// 定时器触发时执行的函数
-		go func() {
-			for {
-				select {
-				case <-ticker.C:
-					fmt.Println(time.Now())
-					CheckDomain()
-					count++
-					log.Info(time.Now(), "第 ", count, " 次运行")
-				}
-			}
-		}()
-		// 处理 Ctrl+C 信号
-		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-
-		// 等待信号通知
-		<-signals
-		//
-		// 收到信号后关闭 ticker
-		ticker.Stop()
-	}
 	select {}
 }
 
@@ -115,136 +66,25 @@ func startBot() {
 			continue
 		}
 		if update.CallbackQuery != nil {
+			//处理回调查询
 			handleCallback(update.CallbackQuery)
 			continue
 		}
-		//仅开头为"/"才处理
-		//单重命令(英文)，示例  /hello
-		cmd := update.Message.Command()
 
-		cmd = strings.ToLower(cmd)
-		if len(cmd) != 0 {
-			HandleCmd(update, cmd)
+		//判断请求来源群
+		switch update.Message.Chat.ID {
+		case globalConf.GroupID.UserGroupID:
+			//用户组
 			continue
-
+		case globalConf.GroupID.AdminGroupID:
+			//管理员组
+			HandleAdminText(update, bot)
+			continue
+		default:
+			log.Info("未知群组请求,groupID = ", update.Message.Chat.ID)
+			continue
 		}
 
-		//记录请求
-		//log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-
-		//多重命令  示例 /show/iex
-		arr := strings.Split(update.Message.Text, "/")
-		if len(arr) != 0 && arr[0] == "" {
-			if len(arr) == 1 {
-				continue
-			}
-			switch arr[1] {
-			case "show":
-				if len(arr) > 2 && arr[2] != "" {
-					//标记是否找到对应模块
-					sign := false
-					conf, err := readConfigFile()
-					if err != nil {
-						log.Error("Failed to open log file: ", err)
-						sendMsg(update.Message.Chat.ID, "请检查配置文件", bot)
-					}
-					//遍历配置文件，信息匹配
-					t := reflect.TypeOf(*conf)
-					v := reflect.ValueOf(*conf)
-					for i := 0; i < t.NumField(); i++ {
-						field := t.Field(i)
-						if strings.ToLower(field.Name) == strings.ToLower(arr[2]) {
-							fieldValue := v.FieldByName(field.Name)
-							sign = true
-							result := checkAuth(update.Message.Chat.ID, strings.ToLower(arr[2]))
-							if result {
-								text := getFieldInfo(fieldValue)
-								sendMsg(update.Message.Chat.ID, text, bot)
-								break
-							}
-							sendMsg(update.Message.Chat.ID, "权限不足", bot)
-							break
-
-						}
-					}
-					if !sign {
-						sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
-					}
-				}
-			case "add":
-				if len(arr) > 2 && arr[2] != "" {
-					switch arr[2] {
-
-					}
-				}
-			case "delete":
-				if len(arr) > 2 && arr[2] != "" {
-
-				}
-			case "setcode":
-				if len(arr) > 2 && arr[2] != "" {
-					err := SetRandomCode(arr[2])
-					if err != nil {
-						sendMsg(update.Message.Chat.ID, "设置随机码失败", bot)
-						continue
-					}
-					sendMsg(update.Message.Chat.ID, "设置兑换码成功", bot)
-					continue
-				}
-			case "setdomain":
-				//向指定url发送https post 请求
-				//bot.SetWebhook()
-
-				//测试修改config文件
-			//case "test":
-			//	globalConf.JinSha = "testModify"
-			//	configData, err := yaml.Marshal(&globalConf)
-			//	if err != nil {
-			//		fmt.Printf("Error marshaling config data: %s\n", err)
-			//		continue
-			//	}
-			//	err = ioutil.WriteFile("config.yaml", configData, 0644)
-			//	if err != nil {
-			//		fmt.Printf("Error marshaling config data: %s\n", err)
-			//		continue
-			//	}
-			//	sendMsg(update.Message.Chat.ID, "修改成功", bot)
-			default:
-				sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{命令}/{模块名}", bot)
-				continue
-			}
-		}
-
-		if update.Message.Chat.Type == cst.ChatTypeGroup {
-			if mentionBot(update.Message, bot.Self.UserName) {
-				replyText := "你在叫我吗？\n"
-				cmdlist := []string{
-					"测试命令列表大全:",
-					"/hello",
-					//"/check", //检查域名
-					"/groupID",
-					"/getcode",
-					"/setcode/{随机码1;随机码2;随机码3;...}",
-					"/myID",
-					//"/show/{模块名称}",
-					//"/change/{模块名称}",
-					//"/add/",
-					//"/delete/",
-					//"/remove",
-					//"模块名称：{}",
-				}
-				strconv.FormatInt(4, 2)
-				text := strings.Join(cmdlist, "\n")
-				sendMsg(update.Message.Chat.ID, replyText+text, bot)
-				continue
-			}
-
-		}
-
-		//处理用户的文本输入，可以根据需要进行逻辑处理
-		//reply := "收到您的输入：" + update.Message.Text
-		//sendMsg(update.Message.Chat.ID, reply, bot)
-		continue
 	}
 
 }
@@ -414,13 +254,22 @@ func GetRandomCode() ([]string, error) {
 }
 
 func SetRandomCode(codeStr string) error {
-	codes := strings.Split(codeStr, ";")
+	codes := utils.StringToStringSli(codeStr)
 	for _, v := range codes {
 		err := rd.SAdd(context.Background(), GiftCodeKey, v).Err()
 		if err != nil {
 			log.Error("添加随机码失败,err =", err)
 			return err
 		}
+	}
+	return nil
+}
+
+func DelRandomCode() error {
+	err := rd.Del(context.Background(), GiftCodeKey).Err()
+	if err != nil {
+		log.Error("删除随机码失败,err =", err)
+		return err
 	}
 	return nil
 }
@@ -488,27 +337,37 @@ func HandleCmd(update tgbotapi.Update, cmd string) {
 	case "check":
 		CheckDomain()
 		break
+	case "startsendcode":
+		IsSend = true
+		sendMsg(update.Message.Chat.ID, "兑换码开始发放", bot)
+		break
+	case "stopsendcode":
+		IsSend = false
+		sendMsg(update.Message.Chat.ID, "兑换码停止发放", bot)
+		break
 	case "getcode":
-		codes, err := GetRandomCode()
+		sendCode(bot, update.Message.Chat.ID)
+		break
+	case "delcode":
+		err := DelRandomCode()
 		if err != nil {
-			sendMsg(update.Message.Chat.ID, "获取随机码失败", bot)
+			sendMsg(update.Message.Chat.ID, "清空兑换码失败", bot)
 			break
 		}
-		if len(codes) == 0 {
-			sendMsg(update.Message.Chat.ID, "兑换码已用完", bot)
-			break
-		}
-		sendMsg(update.Message.Chat.ID, strings.Join(codes, "\n"), bot)
+		sendMsg(update.Message.Chat.ID, "清空兑换码成功", bot)
 		break
 	case "list":
 		cmdlist := []string{
 			"命令列表大全:",
-			"/hello",
+			"/hello ",
 			"/check", //检查域名
-			"/groupID",
-			"/getcode",
-			"/setcode/{随机码1;随机码2;随机码3;...}",
-			"/myID",
+			"/groupID 显示当前群id",
+			"/startSendCode 开始发放兑换码",
+			"/stopSendCode 停止发放兑换码",
+			"/getcode 获取五个兑换码",
+			"/setcode/{兑换码1 兑换码2 兑换码3 ...}    兑换码之间用换行隔开",
+			"/delcode 清空兑换码",
+			"/myID 显示当前用户id",
 			"/show/{模块名称}",
 			"/change/{模块名称}",
 			"/add/",
@@ -521,6 +380,87 @@ func HandleCmd(update tgbotapi.Update, cmd string) {
 		sendMsg(update.Message.Chat.ID, text, bot)
 		break
 	default:
+		break
+	}
+}
+
+func HandleMulCmd(update tgbotapi.Update, arr []string) {
+	if len(arr) == 1 {
+		return
+	}
+	switch arr[1] {
+	case "show":
+		if len(arr) > 2 && arr[2] != "" {
+			//标记是否找到对应模块
+			sign := false
+			conf, err := readConfigFile()
+			if err != nil {
+				log.Error("Failed to open log file: ", err)
+				sendMsg(update.Message.Chat.ID, "请检查配置文件", bot)
+			}
+			//遍历配置文件，信息匹配
+			t := reflect.TypeOf(*conf)
+			v := reflect.ValueOf(*conf)
+			for i := 0; i < t.NumField(); i++ {
+				field := t.Field(i)
+				if strings.ToLower(field.Name) == strings.ToLower(arr[2]) {
+					fieldValue := v.FieldByName(field.Name)
+					sign = true
+					result := checkAuth(update.Message.Chat.ID, strings.ToLower(arr[2]))
+					if result {
+						text := getFieldInfo(fieldValue)
+						sendMsg(update.Message.Chat.ID, text, bot)
+						break
+					}
+					sendMsg(update.Message.Chat.ID, "权限不足", bot)
+					break
+
+				}
+			}
+			if !sign {
+				sendMsg(update.Message.Chat.ID, "未找到对应模块，请检查输入或配置文件", bot)
+			}
+		}
+	case "add":
+		if len(arr) > 2 && arr[2] != "" {
+			switch arr[2] {
+
+			}
+		}
+	case "delete":
+		if len(arr) > 2 && arr[2] != "" {
+
+		}
+	case "setcode":
+		if len(arr) > 2 && arr[2] != "" {
+			err := SetRandomCode(arr[2])
+			if err != nil {
+				sendMsg(update.Message.Chat.ID, "设置随机码失败", bot)
+				break
+			}
+			sendMsg(update.Message.Chat.ID, "设置兑换码成功", bot)
+			break
+		}
+	case "setdomain":
+		//向指定url发送https post 请求
+		//bot.SetWebhook()
+
+		//测试修改config文件
+	//case "test":
+	//	globalConf.JinSha = "testModify"
+	//	configData, err := yaml.Marshal(&globalConf)
+	//	if err != nil {
+	//		fmt.Printf("Error marshaling config data: %s\n", err)
+	//		continue
+	//	}
+	//	err = ioutil.WriteFile("config.yaml", configData, 0644)
+	//	if err != nil {
+	//		fmt.Printf("Error marshaling config data: %s\n", err)
+	//		continue
+	//	}
+	//	sendMsg(update.Message.Chat.ID, "修改成功", bot)
+	default:
+		//sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{命令}/{模块名}", bot)
 		break
 	}
 }

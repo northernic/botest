@@ -3,10 +3,16 @@ package main
 type Config struct {
 	DomainName []string             `yaml:"domainName"`
 	Domains    map[string]int64     `yaml:"Domains"`
-	GroupID    int64                `yaml:"groupID"`
+	GroupID    GroupID              `yaml:"groupID"`
 	BotToken   string               `yaml:"botToken"`
 	GroupAuth  map[string]GroupAuth `yaml:"groupAuth"`
 	Redis      Redis                `yaml:"redis"`
+}
+
+type GroupID struct {
+	AdminGroupID int64 `yaml:"adminGroupID"` //后台控制群
+	UserGroupID  int64 `yaml:"userGroupID"`  //用户发码群
+
 }
 
 type GroupAuth struct {
