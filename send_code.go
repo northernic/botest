@@ -31,6 +31,9 @@ func sendCodeTimer(bot *tgbotapi.BotAPI) {
 	// 创建 Ticker,之后8小时扫一次
 	ticker := cst.GetTicker()
 
+	// 创建定时器(初始时间1h)
+	//timer := time.NewTimer(cst.SendCodeInterval)
+
 	// 定时器触发时执行的函数
 	go func() {
 		for {
@@ -89,7 +92,7 @@ func sendCode(bot *tgbotapi.BotAPI, groupID int64) {
 	if groupID == 0 || bot == nil {
 		return
 	}
-	codes, err := GetRandomCode()
+	codes, err := GetRandomCode(cst.CodeNum)
 	if err != nil {
 		sendMsg(groupID, "获取兑换码失败", bot)
 		return

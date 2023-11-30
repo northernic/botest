@@ -10,6 +10,8 @@ var CmdList = []string{
 	"/setstartTime/2006-01-02 15:04:05 设置兑换码发放开始时间",
 	"/setendTime/2006-01-02 15:04:05 设置兑换码发放结束时间",
 	"/setactivitytext/文案 设置活动文案",
+	"/setinterval/间隔时间 设置间隔时间(秒为单位)",
+	"/setcodenum/兑换码数量 一次发送的兑换码数量",
 	"/getcode 获取五个兑换码",
 	"/setcode/{兑换码1 兑换码2 兑换码3 ...}    兑换码之间用换行隔开",
 	"/delcode 清空兑换码",

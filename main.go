@@ -243,8 +243,8 @@ func getmoduleAuthID(moduleName string) int {
 
 }
 
-func GetRandomCode() ([]string, error) {
-	codes, err := rd.SPopN(context.Background(), GiftCodeKey, 5).Result()
+func GetRandomCode(num int64) ([]string, error) {
+	codes, err := rd.SPopN(context.Background(), GiftCodeKey, num).Result()
 	if err != nil {
 		log.Error("获取随机码失败,err =", err)
 		return nil, err

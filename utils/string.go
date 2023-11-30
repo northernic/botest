@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bot/cst"
 	"strings"
 )
 
@@ -9,10 +10,10 @@ func StringToStringSli(str string) (sli []string) {
 	if str == "" {
 		return []string{}
 	}
-	delimiters := []string{",", ";", ":", "|", "-", "\n", "\t"}
+	SplitSigns := cst.SplitSigns
 
 	sign := ""
-	for _, delimiter := range delimiters {
+	for _, delimiter := range SplitSigns {
 		parts := strings.Split(str, delimiter)
 		if len(parts) > 1 {
 			sign = delimiter

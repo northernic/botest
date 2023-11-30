@@ -62,6 +62,7 @@ func initRedis() {
 	if err != nil {
 		log.Error("redis connect ping failed, err:", err)
 		fmt.Errorf("redis connect ping failed, err:%v", err)
+		panic(err)
 	} else {
 		log.Info("redis connect ping response: pong = ", pong)
 		rd = client

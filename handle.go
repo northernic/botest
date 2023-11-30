@@ -200,6 +200,34 @@ func HandleMulCmd(update tgbotapi.Update, arr []string) {
 		cst.ActivityText = text
 		sendMsg(update.Message.Chat.ID, "设置活动文案成功", bot)
 		break
+	case "setinterval":
+		intervalTime := arr[2]
+		if intervalTime == "" {
+			sendMsg(update.Message.Chat.ID, "请输入时间间隔", bot)
+			break
+		}
+		intervalTimeNum, err := strconv.Atoi(intervalTime)
+		if err != nil {
+			sendMsg(update.Message.Chat.ID, "请输入正确的时间间隔(纯数字)", bot)
+			break
+		}
+		cst.SendCodeInterval = time.Duration(intervalTimeNum) * time.Second
+		sendMsg(update.Message.Chat.ID, "设置时间间隔成功", bot)
+		break
+	case "setcodenum":
+		numStr := arr[2]
+		if numStr == "" {
+			sendMsg(update.Message.Chat.ID, "请输入兑换码数量", bot)
+			break
+		}
+		num, err := strconv.Atoi(numStr)
+		if err != nil {
+			sendMsg(update.Message.Chat.ID, "请输入正确的兑换码数量(纯数字)", bot)
+			break
+		}
+		cst.CodeNum = int64(num)
+		sendMsg(update.Message.Chat.ID, "设置兑换码数量成功", bot)
+		break
 	default:
 		//sendMsg(update.Message.Chat.ID, "请输入类型,格式："+"/{命令}/{模块名}", bot)
 		break
