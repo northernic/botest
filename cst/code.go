@@ -16,5 +16,5 @@ var (
 )
 
 func GetTicker() *time.Ticker {
-	return time.NewTicker(15 * time.Second)
+	return time.NewTicker(SendCodeInterval)
 }
