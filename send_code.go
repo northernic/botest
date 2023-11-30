@@ -19,7 +19,7 @@ func sendCodeTimer2(bot *tgbotapi.BotAPI) {
 		sendMsg(globalConf.GroupID.AdminGroupID, "设置定时任务错误", bot)
 	}
 
-	sendMsg(globalConf.GroupID.AdminGroupID, "定时任务已设定,默认1个小时,任务id : "+strconv.Itoa(int(entryID)), bot)
+	sendMsg(globalConf.GroupID.AdminGroupID, "定时任务已设定,时间间隔为"+interval+"任务id : "+strconv.Itoa(int(entryID)), bot)
 
 }
 
