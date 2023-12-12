@@ -28,3 +28,11 @@ func GetCmdType(cmd string) CmdType {
 	}
 	return CmdTypeNone
 }
+
+// 键盘类型
+const (
+	KeyboardTypeMain        string = "主菜单"      //主菜单
+	KeyboardTypeSettingTask string = "设定定时任务菜单" //设定定时任务菜单
+	KeyboardTypeTaskList    string = "定时任务菜单"   //定时任务菜单
+	KeyboardTypeCancel      string = "取消"       //取消
+)

@@ -12,7 +12,6 @@ type Config struct {
 type GroupID struct {
 	AdminGroupID int64 `yaml:"adminGroupID"` //后台控制群
 	UserGroupID  int64 `yaml:"userGroupID"`  //用户发码群
-
 }
 
 type GroupAuth struct {

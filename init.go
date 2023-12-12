@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bot/cst"
 	"context"
 	"fmt"
 	"github.com/go-redis/redis/v8"
@@ -10,6 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"time"
 )
 
 func initConfig() {
@@ -74,4 +77,49 @@ func initRedis() {
 func initCron() {
 	Cron = cron.New()
 	Cron.Start()
+}
+
+func initTaskParams() {
+	startTimeStr := rd.Get(context.Background(), DashboardTypeStartTime).Val()
+	if startTimeStr != "" {
+		startTime, err := time.Parse("2006-01-02 15:04:05", startTimeStr)
+		if err != nil {
+			log.Error("startTimeStr parse time failed, err:", err)
+		}
+		cst.StartTime = startTime
+	}
+	endTimeStr := rd.Get(context.Background(), DashboardTypeEndTime).Val()
+	if endTimeStr != "" {
+		endTime, err := time.Parse("2006-01-02 15:04:05", endTimeStr)
+		if err != nil {
+			log.Error("endTimeStr parse time failed, err:", err)
+		}
+		cst.EndTime = endTime
+	}
+	sendCodeInterval := rd.Get(context.Background(), DashboardTypeInterval).Val()
+	if sendCodeInterval != "" {
+		cst.SendCodeInterval = sendCodeInterval
+	}
+	codeNumStr := rd.Get(context.Background(), DashboardTypeCodeNum).Val()
+	if codeNumStr != "" {
+		num, err := strconv.Atoi(codeNumStr)
+		if err != nil {
+			log.Error("CodeNum parse  failed, err:", err)
+		}
+		cst.CodeNum = int64(num)
+	}
+	//isSendStr := rd.Get(context.Background(), DashboardTypeIsSend).Val()
+	//if isSendStr != "" {
+	//	switch isSendStr {
+	//	case "1":
+	//		cst.IsSend = true
+	//	default:
+	//		cst.IsSend = false
+	//	}
+	//
+	//}
+	activityText := rd.Get(context.Background(), DashboardTypeActivityText).Val()
+	if activityText != "" {
+		cst.ActivityText = activityText
+	}
 }
